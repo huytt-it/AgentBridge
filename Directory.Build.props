@@ -1,0 +1,12 @@
+<Project>
+  <!--
+    Shared settings for every project.
+    The code must build with both the .NET 8 SDK and the .NET 10 SDK, so the language is pinned to C# 12.
+  -->
+  <PropertyGroup>
+    <LangVersion>12</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <WarningsAsErrors>nullable</WarningsAsErrors>
+  </PropertyGroup>
+</Project>

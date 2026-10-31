@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <!-- net8.0 builds with the .NET 8 and .NET 10 SDKs; RollForward lets the same binary run on .NET 10 when .NET 8 is absent. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <Version>0.1.0</Version>
+    <RootNamespace>AgentBridge</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      Microsoft.Extensions.* 10.x still target net8.0, and every analyzer in this package graph needs Roslyn 4.8
+      at most, which all .NET 8 SDKs ship. The MCP SDK requires the 10.x line.
+    -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
+    <PackageReference Include="ModelContextProtocol.Core" Version="2.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Only a template: appsettings.Local.json itself is what gets loaded, copied and published. -->
+    <Content Update="appsettings.Local.example.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentBridge.Tests" />
+  </ItemGroup>
+
+</Project>
