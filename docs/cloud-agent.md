@@ -38,9 +38,9 @@ It is asynchronous: an answer usually takes from a few seconds to a few minutes,
 
 ## Step 1. Give the cloud agent read and write access to the folder
 
-The agent must be able to **read files and create new files** in the bridge's Box folder: the folder the
-`BoxRoot` setting points to on this machine. In Box itself it usually appears as `All Files/<folder name>`,
-e.g. `AgentBridge`.
+The agent must be able to **read files and create new files** in the bridge's Box folder. By default that is the
+folder `AgentBridge` at the root of Box (`%USERPROFILE%\Box\AgentBridge` on the machine, `All Files/AgentBridge` in
+Box), which the worker creates at its first start. If `BoxRoot` is set on the machine, it is that folder instead.
 
 How depends on what the tenant offers; check it there:
 
@@ -60,7 +60,9 @@ create `inbox/<GUID>.json` and return the GUID. The model then cannot produce ma
 ## Step 2. Paste the standing instruction
 
 Put this text in the agent's instructions (for example a Copilot Studio agent's Instructions, or the instructions of
-a Microsoft 365 Copilot agent). Replace `AgentBridge` with the folder's name or path as the agent sees it in Box.
+a Microsoft 365 Copilot agent). With the default Box folder the text works as it is. Only if `BoxRoot` is set to
+another folder (for example because the organisation does not allow folders at the root of Box), replace every
+`AgentBridge` with that folder's name or path as the agent sees it in Box.
 
 ```text
 You can get data that exists only on the user's local machine through the Box folder "AgentBridge".

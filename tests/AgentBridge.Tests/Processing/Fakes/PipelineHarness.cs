@@ -21,7 +21,7 @@ internal sealed class PipelineHarness : IDisposable
     {
         Options = TestEnvironment.CreateOptions(Root);
         configure?.Invoke(Options);
-        Paths = TestEnvironment.CreatePaths(Options);
+        Paths = TestEnvironment.CreatePaths(Options, Root.Combine("Box"));
         Jobs = new FakeJobStore(Paths.Jobs, Time);
         Registry = new FakeCapabilityRegistry(capabilities);
         Catalog = new FakeCatalogProvider(Registry, Options);

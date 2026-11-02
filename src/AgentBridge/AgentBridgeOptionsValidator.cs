@@ -6,6 +6,14 @@ namespace AgentBridge;
 /// <summary>Fails fast on configuration that would make the worker unsafe or unable to run.</summary>
 internal sealed class AgentBridgeOptionsValidator : IValidateOptions<AgentBridgeOptions>
 {
+    private readonly string? _boxDriveRoot;
+
+    /// <param name="boxDriveRoot">Box Drive's folder; <see cref="AgentBridgePaths.DefaultBoxDriveRoot"/> when null. Tests pass their own.</param>
+    public AgentBridgeOptionsValidator(string? boxDriveRoot = null)
+    {
+        _boxDriveRoot = boxDriveRoot;
+    }
+
     public ValidateOptionsResult Validate(string? name, AgentBridgeOptions options)
     {
         var errors = new List<string>();
@@ -14,17 +22,17 @@ internal sealed class AgentBridgeOptionsValidator : IValidateOptions<AgentBridge
         {
             errors.Add("AgentBridge:AgentId is required.");
         }
-        if (string.IsNullOrWhiteSpace(options.BoxRoot))
+
+        // Resolved exactly as the worker resolves it, so the check and the folder in use never differ.
+        var paths = AgentBridgePaths.ForCurrentDirectory(options, _boxDriveRoot);
+        if (paths.BoxRootIsDefault && !Directory.Exists(paths.BoxDriveRoot))
         {
-            errors.Add("AgentBridge:BoxRoot is required: the Box-synced folder that holds inbox/ and responses/.");
+            errors.Add($"AgentBridge:BoxRoot is not set and Box Drive was not found at {paths.BoxDriveRoot}; "
+                + "install and sign in to Box Drive, or set BoxRoot in appsettings.Local.json.");
         }
-        else
+        else if (AgentBridgePaths.IsSameOrInside(paths.LocalDataRoot, paths.BoxRoot))
         {
-            var paths = AgentBridgePaths.ForCurrentDirectory(options);
-            if (AgentBridgePaths.IsSameOrInside(paths.LocalDataRoot, paths.BoxRoot))
-            {
-                errors.Add($"AgentBridge:LocalDataRoot ({paths.LocalDataRoot}) must be outside BoxRoot so job state and logs are never synced.");
-            }
+            errors.Add($"AgentBridge:LocalDataRoot ({paths.LocalDataRoot}) must be outside BoxRoot so job state and logs are never synced.");
         }
         if (options.PollSeconds is < 1 or > 3600)
         {

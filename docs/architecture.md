@@ -69,6 +69,8 @@ the job fails with `artifact_too_large` and nothing is published. `json`/`text` 
 
 `appsettings.json` (shared, in git) → `appsettings.{Environment}.json` → `appsettings.Local.json`
 (machine-specific: BoxRoot, targets, tools, secrets; git ignores it) → environment variables → command line.
+`BoxRoot` is optional: when it is empty the bridge uses `AgentBridge` inside Box Drive (`%USERPROFILE%\Box`), the
+folder name the cloud's standing instruction expects, so a new machine needs no configuration to connect.
 
 ## Rules that are not negotiable
 
@@ -92,7 +94,10 @@ the job fails with `artifact_too_large` and nothing is published. `json`/`text` 
 
 ## Running
 
-From the repository root (Development config keeps everything under `.local/`):
+From the repository root. The Development config keeps job state in `src/AgentBridge/.local/data` (`dotnet run`
+starts in the project folder); the Box folder is `BoxRoot`, or
+Box Drive's `%USERPROFILE%\Box\AgentBridge` when it is not set (startup fails if neither exists).
+`scripts/selftest.ps1` uses a simulated Box folder under `.local/selftest`.
 
 ```bash
 dotnet run --project src/AgentBridge

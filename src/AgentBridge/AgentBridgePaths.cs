@@ -3,17 +3,35 @@ namespace AgentBridge;
 /// <summary>Absolute locations of every folder and file the bridge uses, resolved once from options.</summary>
 public sealed class AgentBridgePaths
 {
-    public AgentBridgePaths(AgentBridgeOptions options, string baseDirectory)
+    /// <summary>Folder inside Box Drive used when BoxRoot is not set. The cloud's standing instruction uses the same name.</summary>
+    public const string DefaultBoxFolderName = "AgentBridge";
+
+    /// <param name="boxDriveRoot">Box Drive's folder; <see cref="DefaultBoxDriveRoot"/> when null. Tests pass their own.</param>
+    public AgentBridgePaths(AgentBridgeOptions options, string baseDirectory, string? boxDriveRoot = null)
     {
-        BoxRoot = Path.GetFullPath(options.BoxRoot, baseDirectory);
+        BoxDriveRoot = boxDriveRoot ?? DefaultBoxDriveRoot;
+        BoxRootIsDefault = string.IsNullOrWhiteSpace(options.BoxRoot);
+        BoxRoot = BoxRootIsDefault
+            ? Path.Combine(BoxDriveRoot, DefaultBoxFolderName)
+            : Path.GetFullPath(options.BoxRoot, baseDirectory);
         LocalDataRoot = string.IsNullOrWhiteSpace(options.LocalDataRoot)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AgentBridge")
             : Path.GetFullPath(options.LocalDataRoot, baseDirectory);
     }
 
+    /// <summary>Where Box Drive keeps the synced files by default: %USERPROFILE%\Box.</summary>
+    public static string DefaultBoxDriveRoot { get; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Box");
+
     /// <summary>Relative paths in config resolve against the current directory, like any CLI tool.</summary>
-    public static AgentBridgePaths ForCurrentDirectory(AgentBridgeOptions options) =>
-        new(options, Environment.CurrentDirectory);
+    public static AgentBridgePaths ForCurrentDirectory(AgentBridgeOptions options, string? boxDriveRoot = null) =>
+        new(options, Environment.CurrentDirectory, boxDriveRoot);
+
+    /// <summary>Box Drive's folder. Without a configured BoxRoot, the bridge uses its AgentBridge subfolder.</summary>
+    public string BoxDriveRoot { get; }
+
+    /// <summary>True when BoxRoot is not configured and is the AgentBridge folder inside Box Drive.</summary>
+    public bool BoxRootIsDefault { get; }
 
     // Box root: synced with the cloud.
     public string BoxRoot { get; }

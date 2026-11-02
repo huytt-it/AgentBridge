@@ -12,5 +12,7 @@ public static class TestEnvironment
         IncompleteFileGraceSeconds = 60,
     };
 
-    public static AgentBridgePaths CreatePaths(AgentBridgeOptions options) => new(options, Environment.CurrentDirectory);
+    /// <param name="boxDriveRoot">Plays Box Drive's folder, so no test depends on whether this machine has Box Drive.</param>
+    public static AgentBridgePaths CreatePaths(AgentBridgeOptions options, string? boxDriveRoot = null) =>
+        new(options, Environment.CurrentDirectory, boxDriveRoot ?? Path.Combine(Path.GetTempPath(), "agentbridge-tests", "no-box-drive"));
 }

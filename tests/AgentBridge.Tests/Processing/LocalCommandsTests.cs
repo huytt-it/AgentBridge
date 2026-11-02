@@ -140,6 +140,23 @@ public sealed class LocalCommandsTests
         Assert.Contains(FakeCatalogProvider.Version, text);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Validate_says_when_box_root_is_the_box_drive_default(bool isDefault)
+    {
+        using var h = new PipelineHarness([Ping()], o => o.BoxRoot = isDefault ? "" : o.BoxRoot);
+        await using var services = h.BuildServices();
+        var output = new StringWriter();
+
+        await LocalCommands.ValidateAsync(services, [], output, CancellationToken.None);
+
+        var text = output.ToString();
+        Assert.Equal(isDefault, h.Paths.BoxRootIsDefault);
+        Assert.Contains(h.Paths.BoxRoot, text);
+        Assert.Equal(isDefault, text.Contains("Box Drive default, because BoxRoot is not set", StringComparison.Ordinal));
+    }
+
     [Fact]
     public async Task Validate_json_prints_the_catalog()
     {

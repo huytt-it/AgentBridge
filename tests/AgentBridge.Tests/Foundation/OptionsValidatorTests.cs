@@ -19,12 +19,52 @@ public sealed class OptionsValidatorTests : IDisposable
     }
 
     [Fact]
-    public void Requires_box_root()
+    public void Without_box_root_uses_box_drive_when_it_exists()
     {
+        var boxDrive = _root.Combine("Box");
+        Directory.CreateDirectory(boxDrive);
         var options = TestEnvironment.CreateOptions(_root);
         options.BoxRoot = "";
 
-        AssertFailsWith(options, "BoxRoot");
+        Assert.True(new AgentBridgeOptionsValidator(boxDrive).Validate(null, options).Succeeded);
+    }
+
+    [Fact]
+    public void Without_box_root_fails_when_box_drive_is_missing()
+    {
+        var boxDrive = _root.Combine("Box");
+        var options = TestEnvironment.CreateOptions(_root);
+        options.BoxRoot = "";
+
+        var result = new AgentBridgeOptionsValidator(boxDrive).Validate(null, options);
+
+        Assert.True(result.Failed);
+        Assert.Contains(
+            $"BoxRoot is not set and Box Drive was not found at {boxDrive}; install and sign in to Box Drive, or set BoxRoot in appsettings.Local.json.",
+            Assert.Single(result.Failures!),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_configured_box_root_does_not_need_box_drive()
+    {
+        var options = TestEnvironment.CreateOptions(_root);
+
+        Assert.True(new AgentBridgeOptionsValidator(_root.Combine("no-box-drive")).Validate(null, options).Succeeded);
+    }
+
+    [Fact]
+    public void Rejects_local_data_root_inside_the_default_box_root()
+    {
+        var boxDrive = _root.Combine("Box");
+        Directory.CreateDirectory(boxDrive);
+        var options = TestEnvironment.CreateOptions(_root);
+        options.BoxRoot = "";
+        options.LocalDataRoot = Path.Combine(boxDrive, "AgentBridge", "data");
+
+        var result = new AgentBridgeOptionsValidator(boxDrive).Validate(null, options);
+
+        Assert.Contains(result.Failures!, f => f.Contains("LocalDataRoot", StringComparison.Ordinal));
     }
 
     [Fact]

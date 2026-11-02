@@ -9,8 +9,8 @@ public sealed class AgentBridgeOptions
     public string AgentId { get; set; } = Environment.MachineName.ToLowerInvariant();
 
     /// <summary>
-    /// The Box-synced folder that holds inbox/, responses/ and the rest.
-    /// Relative paths resolve against the current directory.
+    /// The Box-synced folder that holds inbox/, responses/ and the rest. When empty: the AgentBridge folder inside
+    /// Box Drive (%USERPROFILE%\Box\AgentBridge). Relative paths resolve against the current directory.
     /// </summary>
     public string BoxRoot { get; set; } = "";
 

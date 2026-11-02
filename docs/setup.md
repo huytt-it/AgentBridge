@@ -6,13 +6,28 @@ whenever a step says so; do not guess on their behalf.
 
 Read [AGENTS.md](../AGENTS.md) first: its rules apply to every step here.
 
+## Fast path
+
+With no tools to connect yet, a machine needs no configuration at all:
+
+1. Install **Box Drive** and sign in. It creates the folder `%USERPROFILE%\Box`.
+2. From the repository root run `dotnet run --project src/AgentBridge`. The worker uses
+   `%USERPROFILE%\Box\AgentBridge` (and creates it) as its Box folder, and the machine name as its id.
+3. Paste the standing instruction from [cloud-agent.md](cloud-agent.md), step 2, into the cloud agent as it is:
+   it already uses the folder name `AgentBridge`.
+
+Some organisations do not allow creating folders at the root of Box. Then set `BoxRoot` in
+`src/AgentBridge/appsettings.Local.json` to a folder they allow, and change the folder name in the cloud instruction
+to match. The steps below do the same carefully, test every part and connect the tools.
+
 ## 0. Ask the user up front
 
 Collect these answers before you start. You need them in steps 3 and 7.
 
-1. Is **Box Drive** installed and signed in on this machine? Which folder in Box should the bridge use? It must be
-   a folder that their Microsoft 365 Copilot can read and write, e.g. `C:\Users\<them>\Box\AgentBridge`.
-2. What should this machine be called in responses (`AgentId`), e.g. `dev-laptop-2`?
+1. Is **Box Drive** installed and signed in on this machine? By default the bridge uses the folder `AgentBridge` at
+   the root of Box (`C:\Users\<them>\Box\AgentBridge`) and creates it. Does their organisation allow that, or must
+   the bridge use another folder? Either way, their Microsoft 365 Copilot must be able to read and write it.
+2. Should this machine have another name than its machine name in responses (`AgentId`), e.g. `dev-laptop-2`?
 3. Which **local repositories or folders** may the cloud refer to as targets? Give each a short business
    description.
 4. Which **tools** should be connected, and where are they? For example: the backlog exporter (a command-line
@@ -37,8 +52,9 @@ git --version
 Test-Path "$env:USERPROFILE\Box"
 ```
 
-`True` means Box Drive's default folder exists. If it is `False`, ask the user where Box Drive is mounted, or
-whether it is installed at all. Without Box the bridge still runs, but the cloud cannot reach it.
+`True` means Box Drive's folder exists and the default BoxRoot, `%USERPROFILE%\Box\AgentBridge`, works. If it is
+`False`, ask the user to install and sign in to Box Drive, or where it is mounted. Without Box Drive and without a
+`BoxRoot` setting, the bridge refuses to start.
 
 ## 2. Build and test
 
@@ -74,7 +90,8 @@ If a check fails, the worker logs are in `.local\selftest\logs`.
 
 ## 3. Configure this machine
 
-Copy the template, then edit the copy:
+Skip this step when the defaults fit: Box Drive's `AgentBridge` folder, the machine name as `AgentId`, and no
+targets yet (step 7 creates the file when you connect tools). Otherwise copy the template, then edit the copy:
 
 ```powershell
 Copy-Item src/AgentBridge/appsettings.Local.example.json src/AgentBridge/appsettings.Local.json
@@ -82,9 +99,10 @@ Copy-Item src/AgentBridge/appsettings.Local.example.json src/AgentBridge/appsett
 
 In `src/AgentBridge/appsettings.Local.json` set:
 
-- `AgentId`: the name from step 0.
-- `BoxRoot`: the absolute path of the Box folder from step 0. Create the folder if it does not exist yet.
-  The bridge creates `inbox/`, `responses/`, `artifacts/`, `archive/` and `dead-letter/` inside it.
+- `AgentId`: only if the user chose a name in step 0. Default: the machine name.
+- `BoxRoot`: only if the user chose another folder in step 0: its absolute path inside Box Drive.
+  Default: `%USERPROFILE%\Box\AgentBridge`. The bridge creates the folder, and `inbox/`, `responses/`, `artifacts/`,
+  `archive/` and `dead-letter/` inside it.
 - `Targets`: one entry per folder from step 0, each with an absolute `Path` and a `Description`.
   The description is what the cloud sees: no local paths in it.
 
@@ -101,10 +119,12 @@ dotnet run --project src/AgentBridge -- validate
 ```
 
 Expect `Configuration is valid.` followed by BoxRoot, LocalDataRoot, the target names and the capability list
-(`agent.ping` for now). Check that BoxRoot is the Box folder and not `.local\box\...`. If it is `.local`, the local
-file was not picked up: check its name and its JSON. Otherwise each error names the setting to fix.
+(`agent.ping` for now). Without a BoxRoot setting the line reads
+`BoxRoot: C:\Users\<them>\Box\AgentBridge  (Box Drive default, because BoxRoot is not set)`. If you did set BoxRoot
+and still see the default, the local file was not picked up: check its name and its JSON. Otherwise each error names
+the setting to fix.
 
-Under `dotnet run`, LocalDataRoot is `.local\data` in the repository, from the Development settings. That is fine:
+Under `dotnet run`, LocalDataRoot is `src\AgentBridge\.local\data`, from the Development settings. That is fine:
 git ignores it. The published app (step 9) uses `%LOCALAPPDATA%\AgentBridge` unless you set LocalDataRoot.
 
 ## 5. Smoke test without Box
@@ -129,7 +149,7 @@ Expect a log line `AgentBridge ... is watching <BoxRoot>: catalog <version>, N c
 From another terminal, drop a request the way the cloud would:
 
 ```powershell
-$box = "<BoxRoot from step 3>"
+$box = "<BoxRoot that validate printed in step 4>"
 $id = [guid]::NewGuid().ToString()
 '{"schemaVersion":1,"requestId":"' + $id + '","capability":"agent.ping"}' | Set-Content -Encoding utf8 "$box\inbox\$id.json"
 ```
@@ -153,8 +173,9 @@ Then start the worker again and check that `catalog.json` lists the new capabili
 The cloud agent learns what it can call from `README.md` and `catalog.json` in the Box folder, but it has to be
 told once that the folder exists. Follow [cloud-agent.md](cloud-agent.md):
 
-1. Take the standing instruction from its step 2, replace `AgentBridge` with this machine's Box folder name, and give
-   the finished text to the user to paste into their Microsoft 365 / Copilot Studio agent.
+1. Take the standing instruction from its step 2 and give it to the user to paste into their Microsoft 365 /
+   Copilot Studio agent. With the default BoxRoot it is ready as it is. If you set BoxRoot to another folder, first
+   replace `AgentBridge` in it with that folder's name or path as the cloud agent sees it in Box.
 2. Ask the user to make sure the agent can read and create files in that folder (its step 1).
 3. With the worker running, ask the user to try the test prompts from its step 3. Watch the worker log and
    `responses/` while they do, and use its troubleshooting table if nothing arrives.
@@ -202,8 +223,9 @@ Tell them:
 
 | Symptom | Cause and fix |
 |---|---|
-| `AgentBridge:BoxRoot is required` | `appsettings.Local.json` is missing or has no BoxRoot (step 3). |
-| BoxRoot shows `.local\box\AgentBridge` | The local file was not loaded: wrong name or folder, or invalid JSON. It must be `src/AgentBridge/appsettings.Local.json`. |
+| `BoxRoot is not set and Box Drive was not found at ...` | Box Drive is not installed or signed in (step 1), or it is mounted elsewhere. Install it, or set BoxRoot in `appsettings.Local.json` (step 3). |
+| BoxRoot shows the Box Drive default although you set it | The local file was not loaded: wrong name or folder, or invalid JSON. It must be `src/AgentBridge/appsettings.Local.json`. |
+| Box does not let the bridge create `AgentBridge` at its root, or the folder never syncs | The organisation blocks folders at the Box root. Set BoxRoot to a folder they allow (step 3) and change the folder name in the cloud instruction (step 8). |
 | `LocalDataRoot ... must be outside BoxRoot` | Move LocalDataRoot out of the Box folder; job logs must never sync. |
 | `Another AgentBridge worker is already running` | Stop the other worker process (a terminal, or the scheduled task). |
 | No response appears | Is the worker running and watching the right BoxRoot? Is Box Drive syncing? The file must end in `.json`, not `.json.txt`. Look in `dead-letter/` for `*.reason.txt`. |

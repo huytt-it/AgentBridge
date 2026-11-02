@@ -16,6 +16,38 @@ public class AgentBridgePathsTests
     }
 
     [Fact]
+    public void Defaults_the_box_root_to_the_agent_bridge_folder_in_box_drive()
+    {
+        var boxDrive = Path.Combine(Base, "Box");
+
+        var paths = new AgentBridgePaths(new AgentBridgeOptions { BoxRoot = " ", LocalDataRoot = "data" }, Base, boxDrive);
+
+        Assert.True(paths.BoxRootIsDefault);
+        Assert.Equal(boxDrive, paths.BoxDriveRoot);
+        Assert.Equal(Path.Combine(boxDrive, "AgentBridge"), paths.BoxRoot);
+        Assert.Equal(Path.Combine(boxDrive, "AgentBridge", "inbox"), paths.Inbox);
+    }
+
+    [Fact]
+    public void A_configured_box_root_wins_over_box_drive()
+    {
+        var paths = new AgentBridgePaths(new AgentBridgeOptions { BoxRoot = "shared/bridge" }, Base, Path.Combine(Base, "Box"));
+
+        Assert.False(paths.BoxRootIsDefault);
+        Assert.Equal(Path.Combine(Base, "shared", "bridge"), paths.BoxRoot);
+    }
+
+    [Fact]
+    public void Box_drive_defaults_to_the_box_folder_in_the_user_profile()
+    {
+        var expected = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Box");
+
+        Assert.Equal(expected, AgentBridgePaths.DefaultBoxDriveRoot);
+        Assert.Equal(expected, new AgentBridgePaths(new AgentBridgeOptions(), Base).BoxDriveRoot);
+        Assert.Equal("AgentBridge", AgentBridgePaths.DefaultBoxFolderName);
+    }
+
+    [Fact]
     public void Defaults_the_local_data_root_to_local_app_data()
     {
         var paths = new AgentBridgePaths(new AgentBridgeOptions { BoxRoot = "box" }, Base);

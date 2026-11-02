@@ -17,6 +17,17 @@ to the machine.
 .NET 8 or .NET 10 (SDK to build, runtime to run). The app targets `net8.0` and rolls forward to .NET 10
 when .NET 8 is not installed.
 
+## Quick start
+
+1. Install Box Drive and sign in.
+2. `dotnet run --project src/AgentBridge` from the repository root. It uses `%USERPROFILE%\Box\AgentBridge` as the
+   folder shared with the cloud and creates it.
+3. Paste the standing instruction from [docs/cloud-agent.md](docs/cloud-agent.md) into the cloud agent. It already uses
+   the folder name `AgentBridge`.
+
+No configuration is needed until you connect tools. If your organisation does not allow folders at the root of Box,
+set `BoxRoot` to a folder it allows and change the folder name in the cloud instruction.
+
 ## Configure
 
 Put this machine's settings in `src/AgentBridge/appsettings.Local.json` (copy `appsettings.Local.example.json`;
@@ -25,7 +36,7 @@ Full walkthrough: [docs/setup.md](docs/setup.md).
 
 | Setting | Meaning |
 |---|---|
-| `BoxRoot` | The Box Drive folder shared with the cloud, e.g. `C:\Users\<you>\Box\AgentBridge`. Required. |
+| `BoxRoot` | The Box Drive folder shared with the cloud. Default `%USERPROFILE%\Box\AgentBridge`; startup fails when it is not set and Box Drive is not installed. |
 | `LocalDataRoot` | Job state and logs. Default `%LOCALAPPDATA%\AgentBridge`. Must be outside `BoxRoot`. |
 | `AgentId` | Name of this machine in responses. Default: the machine name. |
 | `PollSeconds` | How often the inbox is checked. Default 5. |
@@ -38,7 +49,8 @@ Relative paths resolve against the current directory, so use absolute paths outs
 
 ## Run during development
 
-From the repository root. The Development config keeps the simulated Box folder and job state in `.local/`.
+From the repository root. The Development config keeps job state in `src/AgentBridge/.local/data`; the Box folder is
+the real one (Box Drive's `AgentBridge`, or `BoxRoot`). The self-test uses a simulated Box folder in `.local/selftest`.
 
 ```bash
 dotnet run --project src/AgentBridge
@@ -69,8 +81,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/selftest.ps1
 dotnet publish src/AgentBridge -c Release -o publish
 ```
 
-Copy `publish/` to the machine, put the machine's settings in `publish/appsettings.Local.json` (absolute paths),
-then start `AgentBridge.exe` (or `dotnet AgentBridge.dll`). Only one worker can use a `LocalDataRoot` at a time.
+Copy `publish/` to the machine, put the machine's settings, if any, in `publish/appsettings.Local.json` (absolute
+paths), then start `AgentBridge.exe` (or `dotnet AgentBridge.dll`). Only one worker can use a `LocalDataRoot` at a time.
 To build from source on that machine instead, follow [docs/setup.md](docs/setup.md).
 
 ## Send a test request by hand

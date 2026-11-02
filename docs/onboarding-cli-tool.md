@@ -37,8 +37,9 @@ Your job is to declare as little as possible and as tight as possible.
 ## Before you start
 
 - The repository is cloned and `dotnet build AgentBridge.sln` works (.NET SDK 8 or 10).
-- `AgentBridge:BoxRoot` is set for this machine (README, "Configure"). `dotnet run --project src/AgentBridge -- validate`
-  must already succeed *without* your new entry. If it does not, fix that first; it is not part of this task.
+- The Box folder works on this machine: Box Drive's default `AgentBridge` folder, or `AgentBridge:BoxRoot`
+  (README, "Configure"). `dotnet run --project src/AgentBridge -- validate` must already succeed *without* your new
+  entry. If it does not, fix that first; it is not part of this task.
 - You know which language the cloud agent works in. `Description` and `UseWhen` are read by it; ask the user whether
   they should be English or Vietnamese.
 

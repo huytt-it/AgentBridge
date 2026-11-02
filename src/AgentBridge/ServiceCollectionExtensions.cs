@@ -16,7 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddOptions<AgentBridgeOptions>()
             .Bind(configuration.GetSection(AgentBridgeOptions.SectionName))
             .ValidateOnStart();
-        services.AddSingleton<IValidateOptions<AgentBridgeOptions>, AgentBridgeOptionsValidator>();
+        services.AddSingleton<IValidateOptions<AgentBridgeOptions>>(new AgentBridgeOptionsValidator());
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton(sp =>
             AgentBridgePaths.ForCurrentDirectory(sp.GetRequiredService<IOptions<AgentBridgeOptions>>().Value));

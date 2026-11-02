@@ -28,7 +28,8 @@ cannot be connected.
 ## Before you start
 
 - The repository builds (`dotnet build AgentBridge.sln`) and `dotnet run --project src/AgentBridge -- validate`
-  passes with the machine's `src/AgentBridge/appsettings.Local.json` (BoxRoot and targets set up).
+  passes on this machine (Box Drive's default folder or BoxRoot, and the targets set up in
+  `src/AgentBridge/appsettings.Local.json`).
 - You know how the server is started on this machine. A server set up for GitHub Copilot is usually declared in
   VS Code's `mcp.json` (user settings, or `.vscode/mcp.json` in a repository) or in Visual Studio's `.mcp.json`.
   Copy from there; do not guess:

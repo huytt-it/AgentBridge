@@ -48,9 +48,16 @@ internal static class LocalCommands
         var servers = options.McpServers.Count == 0
             ? "(none)"
             : string.Join(", ", options.McpServers.Where(s => s.Value.Enabled).Select(s => s.Key).Order(StringComparer.OrdinalIgnoreCase));
-        var boxState = Directory.Exists(paths.BoxRoot)
-            ? ""
-            : "  (missing: created at first start; it must be inside the Box Drive folder)";
+        var boxNotes = new List<string>();
+        if (paths.BoxRootIsDefault)
+        {
+            boxNotes.Add("Box Drive default, because BoxRoot is not set");
+        }
+        if (!Directory.Exists(paths.BoxRoot))
+        {
+            boxNotes.Add("missing: created at first start; it must be inside the Box Drive folder");
+        }
+        var boxState = boxNotes.Count == 0 ? "" : $"  ({string.Join("; ", boxNotes)})";
         output.WriteLine("Configuration is valid.");
         output.WriteLine($"  BoxRoot:        {paths.BoxRoot}{boxState}");
         output.WriteLine($"  LocalDataRoot:  {paths.LocalDataRoot}");
