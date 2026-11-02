@@ -105,7 +105,7 @@ Expect `Configuration is valid.` followed by BoxRoot, LocalDataRoot, the target 
 file was not picked up: check its name and its JSON. Otherwise each error names the setting to fix.
 
 Under `dotnet run`, LocalDataRoot is `.local\data` in the repository, from the Development settings. That is fine:
-git ignores it. The published app (step 8) uses `%LOCALAPPDATA%\AgentBridge` unless you set LocalDataRoot.
+git ignores it. The published app (step 9) uses `%LOCALAPPDATA%\AgentBridge` unless you set LocalDataRoot.
 
 ## 5. Smoke test without Box
 
@@ -135,8 +135,7 @@ $id = [guid]::NewGuid().ToString()
 ```
 
 Within a few seconds, `$box\responses\$id.json` holds `"status": "succeeded"` and the request moves to
-`$box\archive\`. If the user can, ask them to check from Microsoft 365 Copilot that it can read
-`catalog.json` in that Box folder. That proves the cloud side can see this machine.
+`$box\archive\`. The cloud side is connected in step 8.
 
 Stop the worker (Ctrl+C) before step 7; it reads its configuration only at start.
 
@@ -149,7 +148,18 @@ For each tool from step 0, follow the matching guide. Each one ends with `valida
 
 Then start the worker again and check that `catalog.json` lists the new capabilities.
 
-## 8. Keep it running (optional, ask first)
+## 8. Connect Microsoft 365 Copilot (the user does this)
+
+The cloud agent learns what it can call from `README.md` and `catalog.json` in the Box folder, but it has to be
+told once that the folder exists. Follow [cloud-agent.md](cloud-agent.md):
+
+1. Take the standing instruction from its step 2, replace `AgentBridge` with this machine's Box folder name, and give
+   the finished text to the user to paste into their Microsoft 365 / Copilot Studio agent.
+2. Ask the user to make sure the agent can read and create files in that folder (its step 1).
+3. With the worker running, ask the user to try the test prompts from its step 3. Watch the worker log and
+   `responses/` while they do, and use its troubleshooting table if nothing arrives.
+
+## 9. Keep it running (optional, ask first)
 
 The simplest setup is a terminal running `dotnet run --project src/AgentBridge`. To start it at sign-in instead,
 publish it and register a scheduled task. This changes the user's system, so ask before you do it.
@@ -168,7 +178,7 @@ schtasks /Create /SC ONLOGON /TN AgentBridge /TR "C:\AgentBridge\AgentBridge.exe
 Only one worker may use a LocalDataRoot at a time. A second one exits with
 `Another AgentBridge worker is already running`.
 
-## 9. Updating later
+## 10. Updating later
 
 ```bash
 git pull
@@ -176,7 +186,7 @@ git pull
 
 Then rebuild, test and restart the worker. `appsettings.Local.json` is untouched by pulls.
 
-## 10. Report back to the user
+## 11. Report back to the user
 
 Tell them:
 
@@ -184,7 +194,8 @@ Tell them:
 - the build and test results;
 - BoxRoot, AgentId and the targets you configured;
 - every capability you enabled, with its description;
-- whether the round trip through Box worked, and whether the cloud could read `catalog.json`;
+- whether the round trip through Box worked (step 6) and whether the cloud agent's test prompts worked (step 8);
+- the finished standing instruction you prepared for the cloud agent;
 - anything you skipped or could not verify.
 
 ## Troubleshooting

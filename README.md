@@ -8,6 +8,7 @@ to the machine.
 - Set up a machine: [docs/setup.md](docs/setup.md)
 - Connect a CLI tool: [docs/onboarding-cli-tool.md](docs/onboarding-cli-tool.md)
 - Connect an MCP server: [docs/onboarding-mcp-server.md](docs/onboarding-mcp-server.md)
+- Connect Microsoft 365 Copilot: [docs/cloud-agent.md](docs/cloud-agent.md)
 - Design and rules: [docs/architecture.md](docs/architecture.md)
 - Write a native capability: [docs/adding-capabilities.md](docs/adding-capabilities.md)
 

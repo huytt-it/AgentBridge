@@ -14,6 +14,7 @@ Read [docs/architecture.md](docs/architecture.md) before changing anything.
 | Set the bridge up on a new machine | [docs/setup.md](docs/setup.md) |
 | Connect a command-line tool (e.g. a backlog exporter) | [docs/onboarding-cli-tool.md](docs/onboarding-cli-tool.md) |
 | Connect a local MCP server (e.g. a code-map server) | [docs/onboarding-mcp-server.md](docs/onboarding-mcp-server.md) |
+| Connect Microsoft 365 Copilot (the cloud agent) to the bridge | [docs/cloud-agent.md](docs/cloud-agent.md) |
 | Write a new native .NET capability | [docs/adding-capabilities.md](docs/adding-capabilities.md) |
 
 ## Commands (run from the repository root)
