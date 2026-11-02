@@ -13,6 +13,7 @@ public class AgentBridgePathsTests
         Assert.Equal(Path.Combine(paths.BoxRoot, "inbox"), paths.Inbox);
         Assert.Equal(Path.Combine(paths.BoxRoot, "dead-letter"), paths.DeadLetter);
         Assert.Equal(Path.Combine(Base, "data", "jobs"), paths.Jobs);
+        Assert.Equal(Path.Combine(Base, "data", "logs"), paths.Logs);
     }
 
     [Fact]

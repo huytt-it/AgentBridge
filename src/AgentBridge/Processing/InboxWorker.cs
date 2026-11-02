@@ -75,6 +75,10 @@ internal sealed class InboxWorker : BackgroundService
 
     private async Task StartUpAsync(CancellationToken cancellationToken)
     {
+        _logger.LogInformation(
+            "Log files: {LogFolder} (agentbridge-yyyyMMdd.log, one per day, files older than {RetentionDays} days are deleted).",
+            _paths.Logs,
+            _options.LogRetentionDays);
         _box.EnsureLayout();
         _jobs.EnsureLayout();
         var catalog = _catalog.Current;

@@ -19,6 +19,9 @@ public sealed class AgentBridgeOptions
 
     public int PollSeconds { get; set; } = 5;
 
+    /// <summary>How many days of worker log files (logs/agentbridge-yyyyMMdd.log) are kept; older ones are deleted.</summary>
+    public int LogRetentionDays { get; set; } = 14;
+
     /// <summary>How long an unreadable inbox file is treated as still syncing before it goes to dead-letter.</summary>
     public int IncompleteFileGraceSeconds { get; set; } = 60;
 

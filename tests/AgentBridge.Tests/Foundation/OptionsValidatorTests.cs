@@ -77,6 +77,36 @@ public sealed class OptionsValidatorTests : IDisposable
     }
 
     [Fact]
+    public void Keeps_the_logs_of_two_weeks_by_default()
+    {
+        Assert.Equal(14, new AgentBridgeOptions().LogRetentionDays);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(14)]
+    [InlineData(3650)]
+    public void Accepts_a_log_retention_between_1_and_3650_days(int days)
+    {
+        var options = TestEnvironment.CreateOptions(_root);
+        options.LogRetentionDays = days;
+
+        Assert.True(_validator.Validate(null, options).Succeeded);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(3651)]
+    public void Rejects_a_log_retention_outside_1_to_3650_days(int days)
+    {
+        var options = TestEnvironment.CreateOptions(_root);
+        options.LogRetentionDays = days;
+
+        AssertFailsWith(options, "AgentBridge:LogRetentionDays must be between 1 and 3650.");
+    }
+
+    [Fact]
     public void Rejects_targets_that_do_not_exist()
     {
         var options = TestEnvironment.CreateOptions(_root);

@@ -1,5 +1,6 @@
 using AgentBridge;
 using AgentBridge.Hosting;
+using AgentBridge.Logging;
 using AgentBridge.Mcp;
 using AgentBridge.Processing;
 using Microsoft.Extensions.Logging.Console;
@@ -48,6 +49,8 @@ builder.Services.AddAgentBridge(builder.Configuration);
 if (isWorker)
 {
     builder.Services.AddHostedService<InboxWorker>();
+    // A background worker leaves nothing on screen: keep a daily file in LocalDataRoot/logs.
+    builder.Services.AddAgentBridgeFileLog();
 }
 else
 {

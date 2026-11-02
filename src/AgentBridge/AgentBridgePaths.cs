@@ -47,6 +47,9 @@ public sealed class AgentBridgePaths
     public string LocalDataRoot { get; }
     public string Jobs => Path.Combine(LocalDataRoot, "jobs");
 
+    /// <summary>The worker's daily log files, agentbridge-yyyyMMdd.log.</summary>
+    public string Logs => Path.Combine(LocalDataRoot, "logs");
+
     /// <summary>Where files are written before being moved into Box, so no temp file is ever synced.</summary>
     public string Staging => Path.Combine(LocalDataRoot, "staging");
 

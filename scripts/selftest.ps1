@@ -29,6 +29,7 @@ $app = Join-Path $root "app"
 $box = Join-Path $root "box\AgentBridge"
 $inbox = Join-Path $box "inbox"
 $data = Join-Path $root "data"
+$workerLogs = Join-Path $data "logs"
 $demoRepo = Join-Path $root "demo-repo"
 $logs = Join-Path $root "logs"
 $toolsDll = Join-Path $repo "tests\AgentBridge.TestTools\bin\Debug\net8.0\AgentBridge.TestTools.dll"
@@ -73,6 +74,12 @@ function Wait-Response([string]$Id) {
 }
 
 function Invoke-Bridge([string[]]$BridgeArgs) { & $exe ($prefix + $BridgeArgs) 2>$null }
+
+# The worker keeps the day's file open; Get-Content shares it, so reading while the worker runs is fine.
+function Read-WorkerLog {
+    $files = @(Get-ChildItem -Path $workerLogs -Filter "agentbridge-*.log" -File -ErrorAction SilentlyContinue)
+    ($files | ForEach-Object { Get-Content -Raw -Encoding UTF8 -Path $_.FullName }) -join "`n"
+}
 
 function Start-Worker([string]$Tag) {
     $startArgs = @{
@@ -207,10 +214,15 @@ try {
     Check "run with an unknown capability exits 1" ($LASTEXITCODE -eq 1)
     $null = Invoke-Bridge @("run")
     Check "run without a capability exits 2" ($LASTEXITCODE -eq 2)
+    Check "validate, mcp-tools and run write no log file (stderr only)" (-not (Test-Path $workerLogs))
 
     # ---- Worker: startup ----
     $workerA = Start-Worker "worker-a"
     Check "startup publishes catalog.json and README.md" (Wait-Until { (Test-Path (Join-Path $box "catalog.json")) -and (Test-Path (Join-Path $box "README.md")) })
+    Check "the worker writes data\logs\agentbridge-*.log with the 'is watching' startup line" (Wait-Until { (Read-WorkerLog) -match "is watching" })
+    $logText = Read-WorkerLog
+    Check "log lines have timestamp, level and category" ($logText -match "(?m)^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}[+-]\d\d:\d\d INFO  AgentBridge\.Processing\.InboxWorker: AgentBridge \S+ is watching ")
+    Check "the log names its own folder" ($logText.Contains("Log files: $workerLogs "))
     $catalogText = Get-Content -Raw -Encoding UTF8 (Join-Path $box "catalog.json")
     $catalog = $catalogText | ConvertFrom-Json
     Check "catalog lists agent.ping, backlog.export, code.search" (($catalog.capabilities.name -join ",") -eq "agent.ping,backlog.export,code.search")
@@ -304,6 +316,10 @@ try {
 
     $tmps = @(Get-ChildItem -Recurse -File $box | Where-Object { $_.Name -like "*.tmp" })
     Check "no temp files were left inside the Box folder" ($tmps.Count -eq 0)
+    $logsInBox = @(Get-ChildItem -Recurse -File $box | Where-Object { $_.Name -like "*.log" })
+    Check "no log files inside the Box folder" ($logsInBox.Count -eq 0)
+    $logText = Read-WorkerLog
+    Check "the log, shared by all workers of the run, records the dead-lettered file and the interrupted job" ($logText -match "Moved st-conflict\.json to dead-letter/" -and $logText -match "Request st-crash \(agent\.ping\) never finished; reported it as interrupted")
 }
 finally {
     foreach ($p in $script:procs) { if (-not $p.HasExited) { Stop-Worker $p } }

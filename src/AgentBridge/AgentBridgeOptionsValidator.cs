@@ -38,6 +38,10 @@ internal sealed class AgentBridgeOptionsValidator : IValidateOptions<AgentBridge
         {
             errors.Add("AgentBridge:PollSeconds must be between 1 and 3600.");
         }
+        if (options.LogRetentionDays is < 1 or > 3650)
+        {
+            errors.Add("AgentBridge:LogRetentionDays must be between 1 and 3650.");
+        }
         if (options.IncompleteFileGraceSeconds is < 0 or > 86400)
         {
             errors.Add("AgentBridge:IncompleteFileGraceSeconds must be between 0 and 86400.");
