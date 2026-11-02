@@ -144,7 +144,8 @@ dotnet run --project src/AgentBridge
 ```
 
 Expect a log line `AgentBridge ... is watching <BoxRoot>: catalog <version>, N capabilities ...`.
-`catalog.json` and `README.md` appear in BoxRoot. They are what the cloud reads.
+`catalog.json` and `README.md` appear in BoxRoot. They are what the cloud reads. The worker writes the same lines to
+a file, `<LocalDataRoot>\logs\agentbridge-yyyyMMdd.log` (one per day); the first lines of a start name the folder.
 
 From another terminal, drop a request the way the cloud would:
 
@@ -199,6 +200,15 @@ schtasks /Create /SC ONLOGON /TN AgentBridge /TR "C:\AgentBridge\AgentBridge.exe
 Only one worker may use a LocalDataRoot at a time. A second one exits with
 `Another AgentBridge worker is already running`.
 
+A scheduled task shows no console, so the log file is where to look: `<LocalDataRoot>\logs\agentbridge-yyyyMMdd.log`.
+Without a `LocalDataRoot` setting that is `%LOCALAPPDATA%\AgentBridge\logs` of the account that runs the task.
+
+```powershell
+Get-Content -Tail 50 "$env:LOCALAPPDATA\AgentBridge\logs\agentbridge-$(Get-Date -Format yyyyMMdd).log"
+```
+
+Checking, stopping, restarting and updating the task are in [operations.md](operations.md).
+
 ## 10. Updating later
 
 ```bash
@@ -206,6 +216,7 @@ git pull
 ```
 
 Then rebuild, test and restart the worker. `appsettings.Local.json` is untouched by pulls.
+[operations.md](operations.md#4-update-the-code) has the full sequence, including a published copy.
 
 ## 11. Report back to the user
 
@@ -228,11 +239,12 @@ Tell them:
 | Box does not let the bridge create `AgentBridge` at its root, or the folder never syncs | The organisation blocks folders at the Box root. Set BoxRoot to a folder they allow (step 3) and change the folder name in the cloud instruction (step 8). |
 | `LocalDataRoot ... must be outside BoxRoot` | Move LocalDataRoot out of the Box folder; job logs must never sync. |
 | `Another AgentBridge worker is already running` | Stop the other worker process (a terminal, or the scheduled task). |
-| No response appears | Is the worker running and watching the right BoxRoot? Is Box Drive syncing? The file must end in `.json`, not `.json.txt`. Look in `dead-letter/` for `*.reason.txt`. |
+| No response appears | Is the worker running and watching the right BoxRoot? Is Box Drive syncing? The file must end in `.json`, not `.json.txt`. Look in `dead-letter/` for `*.reason.txt`, and in the worker log, `<LocalDataRoot>\logs\agentbridge-yyyyMMdd.log` (search it for the requestId). More in [operations.md](operations.md). |
+| Nothing on screen: the worker runs in the background | Read the log file: `<LocalDataRoot>\logs\agentbridge-yyyyMMdd.log`, e.g. `Get-Content -Tail 50 <file>`. If there is none, the worker cannot write to that folder: check `LocalDataRoot` and its permissions. |
 | Response is `rejected` | `error.message` says what to fix. The request needs a new `requestId` to be sent again. |
 | A request stays in `inbox/` | The file is not valid JSON yet (still syncing). After `IncompleteFileGraceSeconds` (default 60) it moves to `dead-letter/` with the parse error. |
 | `run` with `--args` fails to parse in PowerShell 5.1 | Escape inner quotes: `--args '{\"echo\":\"hi\"}'`. |
 | Build or test fails only with SDK 8 | Report the exact error to the user; do not change target frameworks or package versions. |
-| `scripts/selftest.ps1` reports FAIL | Read `.local\selftest\logs\worker-*.err.log` and report the failing lines to the user. The self-test does not depend on Box Drive or on the real tools. |
+| `scripts/selftest.ps1` reports FAIL | Read `.local\selftest\logs\worker-*.err.log` and `.local\selftest\data\logs\agentbridge-*.log` and report the failing lines to the user. The self-test does not depend on Box Drive or on the real tools. |
 | A CLI tool is refused as `.cmd`/`.bat` | Call the real program instead (`node x.js`, `python x.py`, `powershell -NoProfile -File x.ps1`); see onboarding-cli-tool.md. |
 | An MCP server times out at startup | `npx` downloads on first run: raise `StartupTimeoutSeconds`, or run the server once by hand; see onboarding-mcp-server.md. |

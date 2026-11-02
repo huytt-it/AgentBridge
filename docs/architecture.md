@@ -30,6 +30,7 @@ inbox/*.json → parse → dedup → claim (local job folder) → validate → e
 
 <LocalDataRoot>/           never synced (default %LOCALAPPDATA%/AgentBridge)
   jobs/{requestId}/        request.json, response.json, published.marker, logs
+  logs/                    agentbridge-yyyyMMdd.log, the worker's log (see "Logging")
   staging/                 files are written here, then moved into Box
   agentbridge.lock         one worker per data root
 ```
@@ -81,6 +82,25 @@ thinks. All of it is built by `CapabilityRegistry` at startup and published by `
 
 Catalog additions: `domains`, `playbooks`, and `domain`, `access`, `exampleQuestions` on every capability. All are
 sorted deterministically and part of `catalogVersion`.
+
+## Logging
+
+Everything is logged through `ILogger`. The worker (the default command) logs to the console and also to
+`{LocalDataRoot}/logs/agentbridge-yyyyMMdd.log`, one file per local calendar day, so a worker without a screen leaves
+something to read. `validate`, `run` and `mcp-tools` log to stderr only.
+
+- `FileLoggerProvider` (`src/AgentBridge/Logging/`, provider alias `File`) writes one line per entry,
+  `2026-11-02T10:15:30.123+07:00 INFO  AgentBridge.Processing.RequestProcessor: <message>`, with an exception on the
+  following lines. Levels follow `Logging:LogLevel`, and `Logging:File:LogLevel` for this provider alone.
+- The file stays open and is flushed per entry, so it can be read while the worker runs (`Get-Content`).
+- `AgentBridge:LogRetentionDays` (default 14, 1–3650): when a day's file is first opened, files named
+  `agentbridge-yyyyMMdd.log` and dated more than that many days back are deleted. Nothing else in the folder is touched.
+- Logging never breaks the worker: an IO error is swallowed after one line on stderr, and the next entry tries again.
+- The folder is resolved on the first entry from the validated options, so an invalid configuration (including a
+  `LocalDataRoot` inside `BoxRoot`) writes no log and ends in `Program.cs`'s `Configuration is invalid:` message.
+  Logs never go into the Box folder.
+
+How to read and manage the log: [operations.md](operations.md).
 
 ## Artifacts
 

@@ -11,6 +11,7 @@ to the machine.
 - Connect Microsoft 365 Copilot: [docs/cloud-agent.md](docs/cloud-agent.md)
 - Design and rules: [docs/architecture.md](docs/architecture.md)
 - Write a native capability: [docs/adding-capabilities.md](docs/adding-capabilities.md)
+- Run, check, update and clean up a running bridge, and its known limitations: [docs/operations.md](docs/operations.md)
 
 ## Requirements
 
@@ -40,6 +41,7 @@ Full walkthrough: [docs/setup.md](docs/setup.md).
 | `LocalDataRoot` | Job state and logs. Default `%LOCALAPPDATA%\AgentBridge`. Must be outside `BoxRoot`. |
 | `AgentId` | Name of this machine in responses. Default: the machine name. |
 | `PollSeconds` | How often the inbox is checked. Default 5. |
+| `LogRetentionDays` | How many days of worker log files (`<LocalDataRoot>\logs\agentbridge-yyyyMMdd.log`) are kept. Default 14. |
 | `Targets` | Allowlisted names the cloud may use, each with an absolute `Path` and a `Description`. |
 | `McpServers` | Local MCP servers started over STDIO. |
 | `Capabilities` | Native tuning, plus `cli` and `mcp` capability entries. The first part of a name is its business domain. |
@@ -76,6 +78,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/selftest.ps1
 
 `run` prints the response JSON on stdout and logs on stderr. In Windows PowerShell 5.1, escape the quotes inside
 `--args`: `--args '{\"echo\":\"hi\"}'`.
+
+The worker also writes everything it logs to `<LocalDataRoot>\logs\agentbridge-yyyyMMdd.log`, one file per day, so a
+worker running in the background leaves something to read. See [docs/operations.md](docs/operations.md).
 
 ## Run on another machine
 

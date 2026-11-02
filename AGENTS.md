@@ -16,6 +16,7 @@ Read [docs/architecture.md](docs/architecture.md) before changing anything.
 | Connect a local MCP server (e.g. a code-map server) | [docs/onboarding-mcp-server.md](docs/onboarding-mcp-server.md) |
 | Connect Microsoft 365 Copilot (the cloud agent) to the bridge | [docs/cloud-agent.md](docs/cloud-agent.md) |
 | Write a new native .NET capability | [docs/adding-capabilities.md](docs/adding-capabilities.md) |
+| Run, check, update and clean up a running bridge: health checks, the log, `dead-letter/`, failed requests, restarts. It ends with the [known limitations](docs/operations.md#9-known-limitations-of-this-version) of this version | [docs/operations.md](docs/operations.md) |
 
 ## Commands (run from the repository root)
 
@@ -77,6 +78,10 @@ starts the real worker in the foreground; stop it with Ctrl+C.
     domain under `AgentBridge:Domains` (`Description`, `UseWhen`, `ExampleQuestions`, for a business user), and
     describe multi-step business goals as playbooks under `AgentBridge:Playbooks`. A playbook is guidance for the
     cloud, not a workflow; do not build one into the worker.
+11. **This repository is public** on GitHub (huytt-it/AgentBridge). Never commit machine settings, secrets, logs,
+    customer data or the names of the user's real projects, repositories, servers or people: examples, tests and docs
+    use neutral names (`DEMO`, `DemoRepo`). Run `git status` and review `git diff` before every commit, and commit only
+    the files you changed.
 
 ## Done means
 
@@ -96,6 +101,7 @@ starts the real worker in the foreground; stop it with Ctrl+C.
 | `src/AgentBridge/Cli/` | Config-driven CLI capabilities |
 | `src/AgentBridge/Mcp/` | MCP server connections, config-driven MCP capabilities, `mcp-tools` |
 | `src/AgentBridge/Box/`, `Jobs/` | Box folder transport, local job state |
+| `src/AgentBridge/Logging/` | The worker's daily file log (`logs/agentbridge-yyyyMMdd.log` in `LocalDataRoot`) |
 | `src/AgentBridge/appsettings.Local.example.json` | Template for the machine-specific settings |
 | `tests/AgentBridge.Tests/` | Unit and integration tests |
 | `tests/AgentBridge.TestTools/` | Stand-in CLI tool and MCP server used by the tests |
