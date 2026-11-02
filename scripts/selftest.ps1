@@ -153,6 +153,29 @@ try {
                     UseWhen        = "When you need to know where a business rule or concept is implemented."
                 }
             }
+            Domains       = @{
+                backlog = @{
+                    Description      = "The backlog of a project: work items with their status and priority."
+                    UseWhen          = "The user asks about the scope, progress or open work of a project."
+                    ExampleQuestions = @("What is still open in project DEMO?")
+                }
+                code    = @{
+                    Description      = "The source code of the applications: where business rules and concepts are implemented."
+                    UseWhen          = "The user asks how or where something is implemented."
+                    ExampleQuestions = @("Where is settlement handled in DemoRepo?")
+                }
+            }
+            Playbooks     = @{
+                "backlog-impact" = @{
+                    Goal             = "Find which parts of the code the open backlog items of a project touch."
+                    UseWhen          = "The user asks what the open work of a project means for the code."
+                    ExampleQuestions = @("Which parts of DemoRepo do the open DEMO items affect?")
+                    Steps            = @(
+                        @{ Capability = "backlog.export"; Purpose = "Get the open items of the project." },
+                        @{ Capability = "code.search"; Purpose = "Search the code for the business terms of each item." }
+                    )
+                }
+            }
         }
     }
     [IO.File]::WriteAllText((Join-Path $app "appsettings.Local.json"), ($config | ConvertTo-Json -Depth 10), $utf8)
@@ -171,6 +194,7 @@ try {
     $validate = (Invoke-Bridge @("validate")) -join "`n"
     Check "validate: configuration is valid" ($LASTEXITCODE -eq 0 -and $validate -match "Configuration is valid")
     Check "validate: lists the CLI and MCP capabilities and the MCP server" ($validate -match "backlog\.export" -and $validate -match "code\.search" -and $validate -match "MCP servers:\s+codemap")
+    Check "validate: lists the domains and the playbook" ($validate -match "Domains \(3\):" -and $validate -match "Playbooks \(1\):" -and $validate -match "backlog-impact" -and $validate -notmatch "Hints:")
     $tools = (Invoke-Bridge @("mcp-tools", "codemap")) -join "`n"
     Check "mcp-tools: lists the server's tools" ($LASTEXITCODE -eq 0 -and $tools -match "search_code")
     $run = (Invoke-Bridge @("run", "agent.ping", "--args", '{\"echo\":\"hi\"}')) -join "`n"
@@ -193,6 +217,12 @@ try {
     $search = $catalog.capabilities | Where-Object { $_.name -eq "code.search" }
     Check "catalog hides the fixed MCP argument" (-not ($search.args.PSObject.Properties.Name -contains "root"))
     Check "catalog leaks no local paths" (-not $catalogText.Contains($repo) -and -not $catalogText.Contains($repo.Replace('\', '\\')))
+    Check "catalog lists the domains agent, backlog, code with their capabilities" (($catalog.domains.name -join ",") -eq "agent,backlog,code" -and (($catalog.domains | Where-Object { $_.name -eq "code" }).capabilities -join ",") -eq "code.search")
+    $playbook = $catalog.playbooks | Where-Object { $_.name -eq "backlog-impact" }
+    Check "catalog lists the playbook with its steps in order" ($null -ne $playbook -and ($playbook.steps.capability -join ",") -eq "backlog.export,code.search")
+    Check "every capability names its domain and has access read" ((($catalog.capabilities.domain) -join ",") -eq "agent,backlog,code" -and @($catalog.capabilities | Where-Object { $_.access -ne "read" }).Count -eq 0)
+    $readme = Get-Content -Raw -Encoding UTF8 (Join-Path $box "README.md")
+    Check "README explains how to choose what to call and lists the playbook" ($readme.Contains("## Choosing what to call") -and $readme.Contains("- ``backlog-impact`` "))
 
     $workerB = Start-Worker "worker-b"
     $null = $workerB.WaitForExit(20000)

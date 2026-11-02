@@ -12,8 +12,10 @@ A capability is one named, read-only operation. The cloud sees only its name, de
    tool exists on the machine.
 2. **Check the rules** (see [Rules](#rules)). If the tool writes, deletes, pushes, deploys or changes a database, stop:
    it stays disabled until a local approval step exists.
-3. **Choose the name.** Lowercase dotted segments, business-oriented: `backlog.export`, `code.business-rules`, not
-   `run-tool` or `mcp.call`. The pattern is `^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$` (`Naming.IsValidCapabilityName`).
+3. **Choose the domain, then the name.** The first segment of the name is the capability's business domain
+   (`backlog.export` belongs to `backlog`). Use an existing domain when it fits, otherwise a new one named after the
+   business area. Then the name: lowercase dotted segments, business-oriented: `backlog.export`, `code.business-rules`,
+   not `run-tool` or `mcp.call`. The pattern is `^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$` (`Naming.IsValidCapabilityName`).
    A name is a contract with the cloud: **never rename a capability, add a new one instead.**
 4. **Write the description and `useWhen` for a model that has never seen this system.**
    - `Description`: what the capability returns, in business terms. One or two sentences.
@@ -21,8 +23,11 @@ A capability is one named, read-only operation. The cloud sees only its name, de
      Bad: "Runs backlog-cli.exe export with --format md."
    - `UseWhen`: the situation in which the cloud should pick it, or when it should *not*.
      Good: "When you need the current scope of a project before analysing requirements."
-   - No local paths, executable names, command lines, credentials or machine names in either text.
-     The cloud decides which capability to call from these two sentences alone.
+   - `ExampleQuestions` (optional): two or three questions a business user would ask that it answers.
+   - No local paths, executable names, command lines, credentials or machine names in any of these texts.
+     The cloud decides which capability to call from them alone.
+   - Leave `Access` at its default, `read`. The registry refuses to enable anything else until a local approval step
+     exists.
 5. **Decide the inputs.** Each argument gets a camelCase name, a type (`string`, `integer`, `number`, `boolean`,
    `object`, `array`), a one-line `Description`, `Required`, and for strings a `Pattern` when the accepted values are
    narrow (the pattern is published so the cloud can produce valid values, and enforced locally).
@@ -52,6 +57,7 @@ internal sealed class BacklogSummaryCapability : ICapability
         Name = "backlog.summary",
         Description = "Counts the open backlog items of a project by status and priority.",
         UseWhen = "When you need a quick view of the size and shape of a project's backlog before asking for details.",
+        ExampleQuestions = ["How big is the backlog of DemoRepo?"],
         RequiresTarget = true,
         Parameters = new Dictionary<string, ParameterDescriptor>
         {
@@ -125,10 +131,17 @@ environment-specific file) under `AgentBridge:Capabilities` can switch one off o
 | `Type` | `native` (default). `cli` and `mcp` entries define a whole capability; see [onboarding-cli-tool.md](onboarding-cli-tool.md) and [onboarding-mcp-server.md](onboarding-mcp-server.md). |
 | `Enabled` | `false` removes the capability from the registry and the catalog. |
 | `Description`, `UseWhen` | Replace the built-in text in `catalog.json`. A blank `UseWhen` clears it. |
+| `ExampleQuestions` | Replace the built-in example questions when not empty. |
+| `Access` | Overrides the domain's access level. Only `read` can be enabled; a capability whose code declares anything else is refused whatever this says. |
 | `TimeoutSeconds` | Replaces the built-in timeout. Must be greater than 0. |
 
 If the capability needs a target, add it under `AgentBridge:Targets`. The `Path` stays on this machine; only the
 name and `Description` reach the cloud, so never put a path in the description.
+
+If its domain is new, describe the domain under `AgentBridge:Domains` (`Description`, `UseWhen`, `ExampleQuestions`,
+written for a business user), and consider whether it is a step of a playbook under `AgentBridge:Playbooks`.
+Both are explained in [onboarding-cli-tool.md](onboarding-cli-tool.md), step 5. Built-in domains (today `agent`) have a
+built-in description that configuration may replace.
 
 ### 4. Check it locally
 
@@ -169,7 +182,7 @@ Both must pass with 0 warnings on .NET 8 and .NET 10. Use C# 12 and no .NET 9+ A
 ### 6. Restart the worker
 
 `catalog.json` and `README.md` are written once at startup. Restart the worker so the cloud sees the new capability.
-The catalog version changes whenever a description, argument, timeout, target or capability changes, and every response
+The catalog version changes whenever a description, argument, timeout, target, capability, domain or playbook changes, and every response
 carries it, so a cloud agent holding an old catalog is told to re-read it.
 
 ## CLI tools and MCP tools need no code
@@ -205,6 +218,7 @@ or parsing its output into structured data.
 - [ ] The user approved exposing this tool.
 - [ ] The capability is read-only (or stays disabled).
 - [ ] The name is final and business-oriented; `Description` and `UseWhen` are clear without any other context.
+- [ ] The name starts with the right business domain, and the domain is described.
 - [ ] No local details in any text the cloud sees.
 - [ ] One class in `Capabilities/Native/` and one `AddSingleton<ICapability, ...>` line.
 - [ ] `validate` is clean and `run <name>` returns what you expect.

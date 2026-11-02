@@ -33,6 +33,59 @@ public sealed class AgentBridgeOptions
 
     /// <summary>Per-capability settings. Keys are capability names.</summary>
     public Dictionary<string, CapabilityOptions> Capabilities { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Business domains. Keys are the first segment of capability names, e.g. "backlog" for "backlog.export".</summary>
+    public Dictionary<string, DomainOptions> Domains { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Multi-step business goals the cloud may follow. Keys are playbook names.</summary>
+    public Dictionary<string, PlaybookOptions> Playbooks { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+/// <summary>
+/// A business domain: the capabilities whose names start with "{key}.". Optional: a domain without an entry is
+/// still published by name. Every text is published in catalog.json.
+/// </summary>
+public sealed class DomainOptions
+{
+    /// <summary>false disables every capability of the domain; their tools and MCP servers are never started.</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>What the domain covers, in business terms.</summary>
+    public string? Description { get; set; }
+
+    /// <summary>When the cloud should look in this domain.</summary>
+    public string? UseWhen { get; set; }
+
+    /// <summary>Questions a business user might ask that this domain answers.</summary>
+    public List<string> ExampleQuestions { get; set; } = [];
+
+    /// <summary>Default access level of the domain's capabilities. Only "read" can be enabled in this version.</summary>
+    public string? Access { get; set; }
+}
+
+/// <summary>A business goal reached by calling capabilities in order. Guidance for the cloud; nothing runs it locally.</summary>
+public sealed class PlaybookOptions
+{
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Required. The goal in the words of a business user.</summary>
+    public string? Goal { get; set; }
+
+    public string? UseWhen { get; set; }
+
+    public List<string> ExampleQuestions { get; set; } = [];
+
+    /// <summary>At least one. The cloud sends one request per step, in this order.</summary>
+    public List<PlaybookStepOptions> Steps { get; set; } = [];
+}
+
+public sealed class PlaybookStepOptions
+{
+    /// <summary>Name of a capability of this agent.</summary>
+    public string? Capability { get; set; }
+
+    /// <summary>Required. What this step contributes to the goal.</summary>
+    public string? Purpose { get; set; }
 }
 
 public sealed class TargetOptions
@@ -60,6 +113,12 @@ public sealed class CapabilityOptions
 
     /// <summary>When the cloud should choose this capability.</summary>
     public string? UseWhen { get; set; }
+
+    /// <summary>Questions a business user might ask that this capability answers. Replaces the built-in ones when set.</summary>
+    public List<string> ExampleQuestions { get; set; } = [];
+
+    /// <summary>What the capability may do: "read". Defaults to the domain's Access, else "read". Only "read" can be enabled.</summary>
+    public string? Access { get; set; }
 
     public int? TimeoutSeconds { get; set; }
 

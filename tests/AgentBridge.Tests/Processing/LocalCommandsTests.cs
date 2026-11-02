@@ -140,6 +140,50 @@ public sealed class LocalCommandsTests
         Assert.Contains(FakeCatalogProvider.Version, text);
     }
 
+    [Fact]
+    public async Task Validate_prints_domains_playbooks_notes_and_hints()
+    {
+        var export = new FakeCapability(new CapabilityDescriptor { Name = "backlog.export", Description = "Exports the backlog." });
+        using var h = new PipelineHarness(Ping(), export);
+        h.Registry.Domains =
+        [
+            new CatalogDomain { Name = "agent", Description = "The agent itself.", Capabilities = ["agent.ping"] },
+            new CatalogDomain { Name = "backlog", Capabilities = ["backlog.export"] },
+        ];
+        h.Registry.Playbooks =
+        [
+            new CatalogPlaybook
+            {
+                Name = "backlog-check",
+                Goal = "Check the backlog.",
+                Steps = [new CatalogPlaybookStep("agent.ping", "Reach the agent."), new CatalogPlaybookStep("backlog.export", "Read the items.")],
+            },
+        ];
+        h.Registry.Notes = ["Playbook 'other' is left out of the catalog: step 1 uses 'code.search', which is disabled."];
+        await using var services = h.BuildServices();
+        var output = new StringWriter();
+
+        Assert.Equal(0, await LocalCommands.ValidateAsync(services, [], output, CancellationToken.None));
+
+        var lines = output.ToString().ReplaceLineEndings("\n");
+        Assert.Contains("""
+            Domains (2):
+              agent - The agent itself.
+                capabilities: agent.ping
+              backlog - (no description)
+                capabilities: backlog.export
+            Playbooks (1):
+              backlog-check - Check the backlog.
+                1. agent.ping - Reach the agent.
+                2. backlog.export - Read the items.
+            Notes:
+              - Playbook 'other' is left out of the catalog: step 1 uses 'code.search', which is disabled.
+            Hints:
+              - Domain 'backlog' has no description. Add AgentBridge:Domains:backlog with Description, UseWhen and ExampleQuestions
+            """.ReplaceLineEndings("\n"), lines, StringComparison.Ordinal);
+        Assert.DoesNotContain("Domain 'agent' has no description", lines, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

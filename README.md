@@ -42,7 +42,9 @@ Full walkthrough: [docs/setup.md](docs/setup.md).
 | `PollSeconds` | How often the inbox is checked. Default 5. |
 | `Targets` | Allowlisted names the cloud may use, each with an absolute `Path` and a `Description`. |
 | `McpServers` | Local MCP servers started over STDIO. |
-| `Capabilities` | Native tuning, plus `cli` and `mcp` capability entries. |
+| `Capabilities` | Native tuning, plus `cli` and `mcp` capability entries. The first part of a name is its business domain. |
+| `Domains` | Optional business descriptions of the domains (`Description`, `UseWhen`, `ExampleQuestions`); `Enabled: false` switches a whole domain off. |
+| `Playbooks` | Optional multi-step business goals: ordered `Steps` of `Capability` and `Purpose`, followed by the cloud. |
 | `MaxArtifactMegabytes` | Largest result one job may publish. Default 20. |
 
 Relative paths resolve against the current directory, so use absolute paths outside development.

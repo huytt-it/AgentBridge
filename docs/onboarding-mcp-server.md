@@ -107,14 +107,22 @@ Then **propose** to the user, and wait for an explicit yes before adding anythin
 | Tool | Capability name | Description (business terms) | UseWhen | Args the cloud may send | Fixed by the bridge |
 |---|---|---|---|---|---|
 
-- **Name**: lowercase dotted, business-oriented, final (`code.call-chain`, not `codemap.trace_call_chain_v2`).
-  A name is a contract with the cloud: never rename it later. `mcp-tools` suggests `{server}.{tool}`; improve it.
+- **Domain, first**: the first segment of the name is the capability's business domain (`code.call-chain` belongs to
+  `code`). The cloud picks a domain before a capability, so use the domain a business user would look in: an existing
+  one if it fits (`validate` lists them), otherwise a new one named after the business area, never after the server.
+  Tools of one server often fit one domain, but they need not.
+- **Name**: `<domain>.<what it returns>`, lowercase dotted, business-oriented, final (`code.call-chain`, not
+  `codemap.trace_call_chain_v2`). A name is a contract with the cloud: never rename it later. `mcp-tools` suggests
+  `{server}.{tool}`; improve it.
 - **Description**: what the capability returns, for an analyst. No tool names, paths, command lines or coding-agent
   instructions. Good: "Explains which parts of an application implement a business feature, following the calls from
   the screen or API down to the database." Bad: "Use this tool before editing code to get the symbol graph."
-- **UseWhen**: when the cloud should pick it (or not).
+- **UseWhen**: when the cloud should pick it (or not). Optionally **ExampleQuestions**: two or three questions a business
+  user would ask that it answers.
 - **Args**: only what an analyst can sensibly supply (a term, a feature name, a limit). Roots, paths, repository
   locations and output files are fixed (step 4).
+- The **domain entry** (step 4) if the domain is new or its texts need extending, and any **playbook** you suggest.
+  Their texts are published too.
 
 Adding the entry is what approves a tool. Do not add entries for tools the user did not approve, not even disabled ones.
 
@@ -158,6 +166,43 @@ Paste the suggested entry under `AgentBridge:Capabilities` in `appsettings.Local
   are ignored) cannot be offered to the cloud: fix them with `FixedArgs` or leave them out if optional.
 - A string enum in the schema is published and checked as a pattern (`asc|desc`).
 
+### Describe the domain, and consider a playbook
+
+Add the domain under `AgentBridge:Domains` if it is new, or extend its texts so they still cover the new capabilities.
+Write them for a business user:
+
+```json
+"Domains": {
+  "code": {
+    "Description": "The source code of the applications: where business rules and features are implemented.",
+    "UseWhen": "The user asks how or where something is implemented, or what a change would touch.",
+    "ExampleQuestions": [ "Where is invoice approval implemented in the billing application?" ]
+  }
+}
+```
+
+A domain without an entry is still published by name, but `validate` prints a hint until it has a `Description`.
+`"Enabled": false` on a domain switches off all its capabilities; their servers are then not started for them.
+
+If a tool is one step of a business goal that needs several capabilities in order (find the feature, then trace it),
+add it to a playbook under `AgentBridge:Playbooks` or propose one:
+
+```json
+"Playbooks": {
+  "feature-impact": {
+    "Goal": "Explain how a business feature is implemented and what a change to it would touch.",
+    "ExampleQuestions": [ "What would change if invoice approval needed two approvers?" ],
+    "Steps": [
+      { "Capability": "code.find-feature", "Purpose": "Find the parts of the application named after the feature." },
+      { "Capability": "code.call-chain", "Purpose": "Follow each part found from the screen down to the database." }
+    ]
+  }
+}
+```
+
+The cloud follows the steps, one request per step, using earlier results for later arguments; nothing runs a playbook
+locally. See [onboarding-cli-tool.md](onboarding-cli-tool.md), "Consider a playbook", for the rules.
+
 ### Field reference
 
 `AgentBridge:McpServers:<name>`
@@ -180,6 +225,8 @@ Paste the suggested entry under `AgentBridge:Capabilities` in `appsettings.Local
 | `Tool` | yes | Tool name exactly as `mcp-tools` lists it (case-sensitive). |
 | `Description` | yes in practice | What it returns, in business terms. Without it the server's own tool description is published and a warning is logged; do not rely on that. |
 | `UseWhen` | recommended | When the cloud should choose it. |
+| `ExampleQuestions` | no | Questions a business user would ask that it answers. |
+| `Access` | no, the domain's, else `read` | What it may do. Only `read` can be enabled in this version; leave it out. |
 | `RequiresTarget` | no, false | The request must name a configured target; needed for `{targetPath}`. |
 | `FixedArgs` | no | Tool arguments always sent, hidden from the cloud. Supports `{targetPath}`. |
 | `Params` | no | Allowlist of tool properties the cloud may send, each with optional `Description`, `Pattern` (a .NET regex the whole value must match), `Example`, `Required`. |
@@ -295,6 +342,9 @@ descriptions) contains local paths, machine names or tool jargon.
 - [ ] The user asked to connect this server and approved each exposed tool.
 - [ ] Only read-only tools have entries.
 - [ ] Every entry has a business `Description` and `UseWhen`; argument descriptions are rewritten; no local details.
+- [ ] Every name starts with the right business domain, and each domain has a `Description`, `UseWhen` and
+      `ExampleQuestions` for a business user (no `Hints:` from `validate`).
+- [ ] You considered a playbook for tools that are steps of one business goal.
 - [ ] Paths and roots are `FixedArgs` (with `{targetPath}` and configured targets), not args.
 - [ ] Secrets are only in `appsettings.Local.json` or user environment variables.
 - [ ] `validate` passes and `run` returns the expected result for each capability.

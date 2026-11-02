@@ -55,4 +55,30 @@ public class NamingTests
     [InlineData("a/b", false)]
     [InlineData("AUX", false)]
     public void Validates_target_names(string name, bool expected) => Assert.Equal(expected, Naming.IsValidTargetName(name));
+
+    [Theory]
+    [InlineData("backlog", true)]
+    [InlineData("code", true)]
+    [InlineData("release-notes", true)]
+    [InlineData("v2", true)]
+    [InlineData("Backlog", false)]
+    [InlineData("backlog.export", false)]
+    [InlineData("back_log", false)]
+    [InlineData("1code", false)]
+    [InlineData("-code", false)]
+    [InlineData("code\n", false)]
+    [InlineData("", false)]
+    public void Validates_domain_and_playbook_names(string name, bool expected)
+    {
+        Assert.Equal(expected, Naming.IsValidDomainName(name));
+        Assert.Equal(expected, Naming.IsValidPlaybookName(name));
+    }
+
+    [Theory]
+    [InlineData("backlog.export", "backlog")]
+    [InlineData("code.business-rules", "code")]
+    [InlineData("dotnet.test.v2", "dotnet")]
+    [InlineData("agent.ping", "agent")]
+    public void The_domain_is_the_first_segment_of_the_capability_name(string capability, string domain) =>
+        Assert.Equal(domain, Naming.DomainOf(capability));
 }

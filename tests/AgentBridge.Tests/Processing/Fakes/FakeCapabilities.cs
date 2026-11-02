@@ -34,10 +34,24 @@ internal sealed class FakeCapability : ICapability
 
 internal sealed class FakeCapabilityRegistry : ICapabilityRegistry
 {
-    public FakeCapabilityRegistry(IEnumerable<ICapability> capabilities) =>
+    public FakeCapabilityRegistry(IEnumerable<ICapability> capabilities)
+    {
         All = capabilities.OrderBy(c => c.Descriptor.Name, StringComparer.Ordinal).ToList();
+        Domains = All
+            .GroupBy(c => Naming.DomainOf(c.Descriptor.Name))
+            .OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => new CatalogDomain { Name = g.Key, Capabilities = g.Select(c => c.Descriptor.Name).ToList() })
+            .ToList();
+    }
 
     public IReadOnlyList<ICapability> All { get; }
+
+    /// <summary>One domain per name prefix, without texts, unless a test sets its own.</summary>
+    public IReadOnlyList<CatalogDomain> Domains { get; set; }
+
+    public IReadOnlyList<CatalogPlaybook> Playbooks { get; set; } = [];
+
+    public IReadOnlyList<string> Notes { get; set; } = [];
 
     public bool TryGet(string name, [NotNullWhen(true)] out ICapability? capability)
     {

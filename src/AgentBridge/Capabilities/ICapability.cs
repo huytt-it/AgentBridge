@@ -32,6 +32,15 @@ public sealed record CapabilityDescriptor
     /// <summary>When the cloud should choose this capability.</summary>
     public string? UseWhen { get; init; }
 
+    /// <summary>Questions a business user might ask that this capability answers. Published in catalog.json.</summary>
+    public IReadOnlyList<string> ExampleQuestions { get; init; } = [];
+
+    /// <summary>
+    /// One of <see cref="AccessLevels"/>. Only <see cref="AccessLevels.Read"/> can be enabled until a local approval step
+    /// exists. The registry sets the effective value from configuration.
+    /// </summary>
+    public string Access { get; init; } = AccessLevels.Read;
+
     public bool RequiresTarget { get; init; }
 
     public IReadOnlyDictionary<string, ParameterDescriptor> Parameters { get; init; } = new Dictionary<string, ParameterDescriptor>();

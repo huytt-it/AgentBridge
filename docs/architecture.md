@@ -42,7 +42,8 @@ inbox/*.json → parse → dedup → claim (local job folder) → validate → e
   non-final statuses; readers treat unknown statuses as "not finished yet".
 - Every response carries `catalogVersion`. Error messages are written for an LLM to fix its request:
   say what was wrong and what is accepted.
-- `catalog.json` describes capabilities in business terms (`description`, `useWhen`, args, example).
+- `catalog.json` describes capabilities in business terms (`description`, `useWhen`, `exampleQuestions`, args,
+  example), grouped into domains, plus playbooks (see "Domains, playbooks and access").
 
 ## Extension point
 
@@ -57,6 +58,29 @@ Config entries with `Type` "cli" or "mcp" are turned into capabilities by an `IC
 | MCP server (STDIO) | An entry under `AgentBridge:McpServers` |
 | Tool of a configured MCP server | A `Type: "mcp"` entry under `AgentBridge:Capabilities` (this is the approval) |
 | Tool with special needs | One class implementing `ICapability` |
+| Business description of a group of capabilities | An entry under `AgentBridge:Domains` |
+| Multi-step business goal | An entry under `AgentBridge:Playbooks` |
+
+## Domains, playbooks and access
+
+The cloud picks what to call only from `catalog.json`, so the catalog groups capabilities the way a business user
+thinks. All of it is built by `CapabilityRegistry` at startup and published by `CatalogProvider`.
+
+- **Domain**: the first segment of a capability name (`backlog.export` is in `backlog`). Optional configuration under
+  `AgentBridge:Domains:{name}` adds `Description`, `UseWhen` and `ExampleQuestions`; without it the domain is still
+  published by name (the built-in `agent` domain has its own texts). `Enabled: false` disables every capability of the
+  domain before any factory runs, so no tool or MCP server starts for them. Domains without enabled capabilities are
+  left out.
+- **Playbook**: `AgentBridge:Playbooks:{name}` describes a business goal as ordered steps (`Capability`, `Purpose`).
+  It is guidance only: there is no workflow engine; the cloud sends one request per step and every capability stays
+  callable on its own. A step naming no capability is a startup error; a step whose capability is disabled leaves the
+  playbook out of the catalog, and `validate` says so.
+- **Access**: every capability has an access level, its own, else its domain's, else `read`. Only `read` can be
+  enabled; anything else is a startup error until a local approval step exists (rule 6 below). It is the place where
+  permissions can be added later.
+
+Catalog additions: `domains`, `playbooks`, and `domain`, `access`, `exampleQuestions` on every capability. All are
+sorted deterministically and part of `catalogVersion`.
 
 ## Artifacts
 

@@ -26,10 +26,12 @@ internal sealed class CatalogProvider : ICatalogProvider
 
         Current = new Catalog
         {
-            CatalogVersion = ComputeVersion(targets, capabilities),
+            CatalogVersion = ComputeVersion(targets, registry.Domains, registry.Playbooks, capabilities),
             GeneratedAtUtc = timeProvider.GetUtcNow(),
             Agent = new AgentInfo(options.Value.AgentId, AgentVersion.Current),
             Targets = targets,
+            Domains = registry.Domains,
+            Playbooks = registry.Playbooks,
             Capabilities = capabilities,
         };
     }
@@ -56,8 +58,11 @@ internal sealed class CatalogProvider : ICatalogProvider
         return new CatalogCapability
         {
             Name = descriptor.Name,
+            Domain = Naming.DomainOf(descriptor.Name),
             Description = descriptor.Description,
             UseWhen = descriptor.UseWhen,
+            ExampleQuestions = descriptor.ExampleQuestions,
+            Access = descriptor.Access,
             RequiresTarget = descriptor.RequiresTarget,
             Args = new SortedDictionary<string, ParameterDescriptor>(
                 descriptor.Parameters.ToDictionary(p => p.Key, p => p.Value), StringComparer.Ordinal),
@@ -68,9 +73,20 @@ internal sealed class CatalogProvider : ICatalogProvider
     }
 
     /// <summary>Hash of everything the cloud may act on. The agent version and generation time are left out on purpose.</summary>
-    private static string ComputeVersion(IReadOnlyList<CatalogTarget> targets, IReadOnlyList<CatalogCapability> capabilities)
+    private static string ComputeVersion(
+        IReadOnlyList<CatalogTarget> targets,
+        IReadOnlyList<CatalogDomain> domains,
+        IReadOnlyList<CatalogPlaybook> playbooks,
+        IReadOnlyList<CatalogCapability> capabilities)
     {
-        var canonical = new { SchemaVersion = Catalog.CurrentSchemaVersion, Targets = targets, Capabilities = capabilities };
+        var canonical = new
+        {
+            SchemaVersion = Catalog.CurrentSchemaVersion,
+            Targets = targets,
+            Domains = domains,
+            Playbooks = playbooks,
+            Capabilities = capabilities,
+        };
         var hash = Hashing.Sha256Hex(JsonSerializer.SerializeToUtf8Bytes(canonical, HashOptions));
         return hash[..VersionLength];
     }

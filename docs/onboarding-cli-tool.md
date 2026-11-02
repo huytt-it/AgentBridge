@@ -84,8 +84,13 @@ If the tool has write operations, say so to the user and leave them out. If you 
 
 Decide each of these before writing JSON.
 
-**Name.** Lowercase dotted segments, business-oriented: `backlog.export`, `code.business-rules`. Not `run-tool`,
-not the executable's name. Pattern: `^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$`.
+**Domain, first.** The first segment of the name is the capability's business domain: `backlog.export` belongs to
+`backlog`, `code.search` to `code`. The cloud picks a domain before it picks a capability, so put the capability where a
+business user would look for it: in an existing domain if one fits (`validate` lists them), otherwise in a new one named
+after the business area (`backlog`, `code`, `release`), never after the tool. Domain pattern: `^[a-z][a-z0-9-]*$`.
+
+**Name.** `<domain>.<what it returns>`, lowercase dotted segments, business-oriented: `backlog.export`,
+`code.business-rules`. Not `run-tool`, not the executable's name. Pattern: `^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$`.
 
 **`Description`** (required): what the capability *returns*, in the words of the business analyst who reads it, one or
 two sentences. Good: "Exports the open backlog items of a project as Markdown, grouped by epic, with status and
@@ -93,6 +98,12 @@ priority." Bad: "Runs backlog-cli.exe export --format md."
 
 **`UseWhen`**: the situation in which the cloud should pick it, or when it should not. "When you need the current
 scope of a project before analysing requirements."
+
+**`ExampleQuestions`** (optional): two or three questions a business user would ask that this capability answers,
+e.g. "What is still open in project DEMO?". The cloud matches the user's words against them.
+
+**`Access`**: leave it out. Every capability is `read`, the default; any other value is refused at startup until a
+local approval step exists.
 
 **Params** (what the cloud may send). For each: camelCase name, `Type` (`string`, `integer`, `number`, `boolean`),
 `Description`, `Required`, and for strings a tight `Pattern`. Rules of thumb:
@@ -129,7 +140,8 @@ paths), and use `{targetPath}` in `Args`. The tool then also runs with that fold
 
 ## Step 4. Propose the entry to the user and wait
 
-Show the user the complete JSON entry and a plain-language summary, then **stop and wait for approval**. For example:
+Show the user the complete JSON entry, the domain and playbook entries from step 5 if you add or change any (their
+texts are published too), and a plain-language summary, then **stop and wait for approval**. For example:
 
 > I would like to expose this tool to the cloud agent as `backlog.export`. It runs the exporter read-only for one
 > project (and optionally one status) and returns the result as a Markdown file. The cloud can only send `project`
@@ -160,6 +172,56 @@ into it; never replace other settings (`BoxRoot`, `Targets`, other capabilities)
   `appsettings.json`, never in `Args`, never in a description.
 - Keep the entry minimal: only the arguments the operation needs.
 
+### Describe the domain
+
+If the capability starts a new domain, add the domain under `AgentBridge:Domains` in the same file. If the domain
+exists, check that its texts still cover the new capability and extend them. Write them for a business user, not for a
+developer; they are published in `catalog.json`:
+
+```json
+{
+  "AgentBridge": {
+    "Domains": {
+      "backlog": {
+        "Description": "The backlog of a project: work items with their status, priority and epic.",
+        "UseWhen": "The user asks about the scope, progress or open work of a project.",
+        "ExampleQuestions": [ "What is still open in project DEMO?", "Which epics of DEMO have not started?" ]
+      }
+    }
+  }
+}
+```
+
+A domain without an entry still works and is published by name, but `validate` prints a hint until it has a
+`Description`. `"Enabled": false` on a domain switches off all its capabilities at once; their tools are not checked
+or started.
+
+### Consider a playbook
+
+If the capability is one step of a business goal that needs several capabilities in order, add it to a playbook under
+`AgentBridge:Playbooks`, or propose one to the user. For example, export the backlog, then look for each item in the
+code:
+
+```json
+"Playbooks": {
+  "backlog-impact": {
+    "Goal": "Find which parts of the code the open backlog items of a project touch.",
+    "UseWhen": "The user asks what the open work of a project means for the code.",
+    "ExampleQuestions": [ "Which parts of DemoRepo do the open DEMO items affect?" ],
+    "Steps": [
+      { "Capability": "backlog.export", "Purpose": "Get the open items of the project." },
+      { "Capability": "code.search", "Purpose": "Search the code for the business terms of each item." }
+    ]
+  }
+}
+```
+
+A playbook is guidance, not a workflow: the cloud follows the steps, one request per step, and fills later arguments
+from earlier results; nothing runs it on this machine, and every capability stays callable on its own. `Goal` and at
+least one step are required, and every step needs a `Purpose`. A step that names a capability that does not exist is
+a startup error; if a step's capability (or its domain) is disabled, the playbook is left out of the catalog and
+`validate` says so. Playbook names follow `^[a-z][a-z0-9-]*$`.
+
 ## Step 6. Validate, then run it for real
 
 From the repository root:
@@ -170,8 +232,9 @@ dotnet run --project src/AgentBridge -- validate
 
 `validate` checks every entry at once and lists **every** problem, each starting with the config key to change
 (e.g. `AgentBridge:Capabilities:backlog.export:Exe '...' was not found on PATH`). Fix them all and run it again until
-it prints `Configuration is valid.` and lists your capability. Then run the capability as the cloud would, with real
-values:
+it prints `Configuration is valid.` and lists your capability, under its domain, and any playbook that uses it. A
+`Hints:` line means a domain has no description yet; a `Notes:` line explains a playbook that was left out. Then run
+the capability as the cloud would, with real values:
 
 ```bash
 dotnet run --project src/AgentBridge -- run backlog.export --args '{"project":"DEMO","status":"Open"}'
@@ -224,6 +287,8 @@ Keys are case-insensitive. Fields not listed for `cli` (`Server`, `Tool`, `Fixed
 | `Enabled` | no | `true` | `false` removes the capability (nothing is started or checked). |
 | `Description` | **yes** | | What the capability returns, in business terms. Published. |
 | `UseWhen` | no | | When the cloud should choose it. Published. |
+| `ExampleQuestions` | no | `[]` | Questions a business user would ask that it answers. Published. |
+| `Access` | no | the domain's, else `read` | What it may do. Only `read` can be enabled in this version. |
 | `Exe` | **yes** | | The program. Either a bare name found on `PATH` (`node`, `python`, `powershell`, `mytool`; `PATHEXT` is honoured on Windows) or an **absolute** path that exists. Resolved to a full path at startup. `.bat` and `.cmd` are refused. A relative path with folders (`.\tool.exe`) is refused. |
 | `Args` | no | `[]` | Argument template. **Each item is exactly one argument.** See "Placeholders". |
 | `OptionalArgs` | no | `{}` | `{ "paramName": [ items... ] }`. The items are added only when the param is sent (for a boolean: when it is `true`). |
@@ -489,6 +554,9 @@ compare with `stdout.log` / `stderr.log`.
 - [ ] The user approved this exact entry (step 4).
 - [ ] Read-only, no side effects reachable (`Args` fixes the operation; no free-form flags or paths).
 - [ ] Name is final and business-oriented; `Description` and `UseWhen` mention no paths, executables or credentials.
+- [ ] The name starts with the right business domain, and the domain has a `Description`, `UseWhen` and
+      `ExampleQuestions` written for a business user (no `Hints:` from `validate`).
+- [ ] You considered whether the capability belongs in a playbook, and proposed one if it does.
 - [ ] Every param has a `Description` and a tight `Pattern` (or the safe default); examples satisfy the patterns.
 - [ ] Secrets are only in `appsettings.Local.json` `Environment` or user environment variables, not in git.
 - [ ] `validate` prints `Configuration is valid.`; `run` succeeded with real values and the result was reviewed;

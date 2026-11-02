@@ -14,7 +14,7 @@ both files every time it starts:
 | File in the Box folder | What the cloud learns from it |
 |---|---|
 | `README.md` | The protocol: where to write a request, its fields, how to choose a requestId, where the answer appears, what each status and error code means and what to do about it. |
-| `catalog.json` | What it may ask for: each capability with its `description`, `useWhen`, arguments (type, pattern, example), the target names, and a complete example request. |
+| `catalog.json` | What it may ask for: each capability with its `description`, `useWhen`, `exampleQuestions`, arguments (type, pattern, example), the target names, and a complete example request; the business `domains` the capabilities belong to; and `playbooks`, business goals that need several capabilities in order. `README.md` tells the cloud to try a matching playbook first, then the matching domain. |
 
 Adding or removing a tool only needs a worker restart; `catalog.json` changes, the cloud side does not.
 The only thing the cloud agent must be told once is that the folder exists and that it has to read `README.md`

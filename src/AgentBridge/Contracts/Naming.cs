@@ -18,6 +18,20 @@ public static partial class Naming
     public static bool IsValidTargetName([NotNullWhen(true)] string? value) =>
         value is not null && TargetNamePattern().IsMatch(value) && !IsReservedWindowsName(value);
 
+    /// <summary>A business domain: the first segment of its capabilities' names, e.g. "backlog".</summary>
+    public static bool IsValidDomainName([NotNullWhen(true)] string? value) =>
+        value is not null && SegmentPattern().IsMatch(value);
+
+    public static bool IsValidPlaybookName([NotNullWhen(true)] string? value) =>
+        value is not null && SegmentPattern().IsMatch(value);
+
+    /// <summary>The domain a capability belongs to: the first segment of its name ("backlog.export" → "backlog").</summary>
+    public static string DomainOf(string capabilityName)
+    {
+        var dot = capabilityName.IndexOf('.');
+        return dot < 0 ? capabilityName : capabilityName[..dot];
+    }
+
     // Letters, digits, '.', '_' and '-'; starts and ends with a letter or digit; at most 128 characters.
     // \z rather than $ so a trailing newline does not match.
     [GeneratedRegex(@"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?\z")]
@@ -29,6 +43,10 @@ public static partial class Naming
 
     [GeneratedRegex(@"^[A-Za-z][A-Za-z0-9._-]{0,63}\z")]
     private static partial Regex TargetNamePattern();
+
+    // One segment of a capability name: backlog, code, release-notes.
+    [GeneratedRegex(@"^[a-z][a-z0-9-]*\z")]
+    private static partial Regex SegmentPattern();
 
     private static bool IsReservedWindowsName(string value)
     {

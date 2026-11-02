@@ -24,10 +24,30 @@ internal static class ReadmeRenderer
             - What you may ask for, with the exact arguments: `catalog.json` in this folder. Read it before you send a request.
               It is the only source of truth for capability names, targets and arguments. This file explains the protocol.
 
+            ## Choosing what to call
+
+            `catalog.json` groups the capabilities to help you turn the user's question into requests:
+
+            - `playbooks`: business goals that need several capabilities in order. Each has a `goal`, `useWhen`, `exampleQuestions`
+              and `steps`; each step names a `capability` and its `purpose`.
+            - `domains`: business areas. Each has a `description`, `useWhen`, `exampleQuestions` and the names of its `capabilities`.
+              A capability belongs to the domain named by the first part of its name (`backlog.export` is in `backlog`) and says so in its `domain` field.
+
+            Decide in this order:
+
+            1. If the user's goal matches a playbook (its `goal`, `useWhen` or `exampleQuestions`), follow its `steps` in order, one request per step.
+               Use the results of earlier steps to fill the arguments of later ones. Skip a step only when it is clearly not needed.
+            2. Otherwise pick the domain whose `description`, `useWhen` or `exampleQuestions` match the question, then the capability inside it
+               whose `description`, `useWhen` and `exampleQuestions` fit best.
+            3. If nothing matches, tell the user what this agent can do instead of forcing a capability that does not fit.
+
+            Every capability can also be called on its own: a playbook is guidance, not a rule. A capability's `access` says what it may do
+            on the machine; `read` means it only reads data and changes nothing. Today every capability is `read`.
+
             ## Sending a request
 
-            1. Read `catalog.json` and pick a capability. Its `description` says what it returns and `useWhen` says when to choose it.
-               Never invent a capability name, a target name or an argument.
+            1. Read `catalog.json` and pick a capability as described in "Choosing what to call". Its `description` says what it returns
+               and `useWhen` says when to choose it. Never invent a capability name, a target name or an argument.
             2. Choose a new `requestId`: 1 to 128 characters of letters, digits, `.`, `_` and `-`, starting and ending with a letter or digit.
                Use a new GUID. A requestId must be unique: never reuse one, not even to retry.
             3. Write ONE new file `inbox/{requestId}.json` that contains the request (fields below). One file per request.
@@ -119,6 +139,14 @@ internal static class ReadmeRenderer
             `{ "path", "contentType", "sizeBytes" }`. `path` is relative to the root of this folder and always starts with `artifacts/`.
             Open the file from there. Like responses, a new file can take a moment to sync.
 
+            ## Playbooks right now
+
+            {{RenderPlaybooks(catalog)}}
+
+            ## Domains right now
+
+            {{RenderDomains(catalog)}}
+
             ## Capabilities right now
 
             {{RenderCapabilities(catalog)}}
@@ -127,6 +155,50 @@ internal static class ReadmeRenderer
             """;
 
         return readme.ReplaceLineEndings("\n");
+    }
+
+    private static string RenderPlaybooks(Catalog catalog)
+    {
+        if (catalog.Playbooks.Count == 0)
+        {
+            return "_No playbooks are configured on this agent. Choose by domain._";
+        }
+
+        var list = new StringBuilder();
+        foreach (var playbook in catalog.Playbooks)
+        {
+            if (list.Length > 0)
+            {
+                list.Append('\n');
+            }
+            list.Append("- `").Append(playbook.Name).Append("` — ").Append(OneLine(playbook.Goal))
+                .Append(" Steps: ").Append(string.Join(" → ", playbook.Steps.Select(s => $"`{s.Capability}`"))).Append('.');
+        }
+        return list.ToString();
+    }
+
+    private static string RenderDomains(Catalog catalog)
+    {
+        if (catalog.Domains.Count == 0)
+        {
+            return "_No capabilities are enabled on this agent right now._";
+        }
+
+        var list = new StringBuilder();
+        foreach (var domain in catalog.Domains)
+        {
+            if (list.Length > 0)
+            {
+                list.Append('\n');
+            }
+            list.Append("- `").Append(domain.Name).Append("` — ");
+            if (domain.Description is not null)
+            {
+                list.Append(OneLine(domain.Description)).Append(' ');
+            }
+            list.Append("Capabilities: ").Append(string.Join(", ", domain.Capabilities.Select(c => $"`{c}`"))).Append('.');
+        }
+        return list.ToString();
     }
 
     private static string RenderCapabilities(Catalog catalog)

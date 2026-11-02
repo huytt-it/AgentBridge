@@ -197,7 +197,101 @@ public sealed class CatalogProviderTests
         { "target removed", o => o.Targets.Remove("DemoRepo") },
         { "target description", o => o.Targets["DemoRepo"].Description = "Changed" },
         { "target renamed", o => { o.Targets.Remove("DemoRepo"); o.Targets["DemoRepo2"] = new TargetOptions { Path = SecretPath, Description = "Demo repository" }; } },
+        { "capability example questions", o => o.Capabilities["test.fake"] = new CapabilityOptions { ExampleQuestions = ["Is it there?"] } },
+        { "domain description", o => o.Domains["test"] = new DomainOptions { Description = "Test things." } },
+        { "domain useWhen", o => o.Domains["test"] = new DomainOptions { UseWhen = "Always." } },
+        { "domain example questions", o => o.Domains["test"] = new DomainOptions { ExampleQuestions = ["What is tested?"] } },
+        { "playbook added", o => o.Playbooks["check"] = Playbook("test.fake") },
     };
+
+    private static PlaybookOptions Playbook(params string[] capabilities) => new()
+    {
+        Goal = "Check the test things.",
+        Steps = capabilities.Select(c => new PlaybookStepOptions { Capability = c, Purpose = $"Run {c}." }).ToList(),
+    };
+
+    /// <summary>Applied to the "check" playbook of a configuration with test.fake and test.other.</summary>
+    public static TheoryData<string, Action<PlaybookOptions>> PlaybookChanges => new()
+    {
+        { "goal", p => p.Goal = "Another goal." },
+        { "useWhen", p => p.UseWhen = "When asked." },
+        { "example questions", p => p.ExampleQuestions = ["Is everything checked?"] },
+        { "step purpose", p => p.Steps[0].Purpose = "Another purpose." },
+        { "step order", p => p.Steps.Reverse() },
+        { "step added", p => p.Steps.Add(new PlaybookStepOptions { Capability = "test.fake", Purpose = "Again." }) },
+        { "disabled", p => p.Enabled = false },
+    };
+
+    [Theory]
+    [MemberData(nameof(PlaybookChanges))]
+    public void Version_changes_when_a_playbook_changes(string change, Action<PlaybookOptions> configure)
+    {
+        ICapability[] capabilities = [Fake(), new FakeCapability("test.other")];
+        var baseline = Build(o => o.Playbooks["check"] = Playbook("test.fake", "test.other"), capabilities: capabilities).Current.CatalogVersion;
+
+        var changed = Build(o =>
+        {
+            o.Playbooks["check"] = Playbook("test.fake", "test.other");
+            configure(o.Playbooks["check"]);
+        }, capabilities: capabilities).Current.CatalogVersion;
+
+        Assert.True(baseline != changed, $"The catalog version should change when the playbook's {change} changes");
+    }
+
+    [Fact]
+    public void Version_does_not_depend_on_the_order_domains_and_playbooks_were_configured()
+    {
+        ICapability[] capabilities = [Fake(), new FakeCapability("code.search")];
+        var first = Build(o =>
+        {
+            o.Domains["test"] = new DomainOptions { Description = "t" };
+            o.Domains["code"] = new DomainOptions { Description = "c" };
+            o.Playbooks["beta"] = Playbook("code.search");
+            o.Playbooks["alpha"] = Playbook("test.fake");
+        }, capabilities: capabilities).Current;
+        var second = Build(o =>
+        {
+            o.Playbooks["alpha"] = Playbook("test.fake");
+            o.Playbooks["beta"] = Playbook("code.search");
+            o.Domains["code"] = new DomainOptions { Description = "c" };
+            o.Domains["test"] = new DomainOptions { Description = "t" };
+        }, capabilities: capabilities).Current;
+
+        Assert.Equal(first.CatalogVersion, second.CatalogVersion);
+        Assert.Equal(["code", "test"], first.Domains.Select(d => d.Name));
+        Assert.Equal(["alpha", "beta"], first.Playbooks.Select(p => p.Name));
+    }
+
+    [Fact]
+    public void Capabilities_name_their_domain_access_and_example_questions()
+    {
+        var provider = Build(o => o.Capabilities["agent.ping"] = new CapabilityOptions { ExampleQuestions = ["Is the laptop on?"] });
+
+        var ping = Assert.Single(provider.Current.Capabilities);
+        Assert.Equal("agent", ping.Domain);
+        Assert.Equal(AccessLevels.Read, ping.Access);
+        Assert.Equal(["Is the laptop on?"], ping.ExampleQuestions);
+    }
+
+    [Fact]
+    public void Lists_the_domains_and_playbooks_of_the_registry()
+    {
+        var provider = Build(o =>
+        {
+            o.Domains["code"] = new DomainOptions { Description = "Source code.", UseWhen = "Questions about implementation.", ExampleQuestions = ["Where is X done?"] };
+            o.Playbooks["impact"] = Playbook("test.fake", "code.search");
+        }, capabilities: [Fake(), new FakeCapability("code.search"), new FakeCapability("code.map")]);
+
+        var catalog = provider.Current;
+        Assert.Equal(["code", "test"], catalog.Domains.Select(d => d.Name));
+        var code = catalog.Domains[0];
+        Assert.Equal("Source code.", code.Description);
+        Assert.Equal("Questions about implementation.", code.UseWhen);
+        Assert.Equal(["Where is X done?"], code.ExampleQuestions);
+        Assert.Equal(["code.map", "code.search"], code.Capabilities);
+        var playbook = Assert.Single(catalog.Playbooks);
+        Assert.Equal(["test.fake", "code.search"], playbook.Steps.Select(s => s.Capability));
+    }
 
     [Theory]
     [MemberData(nameof(ChangesTheCloudCanSee))]
@@ -344,14 +438,47 @@ public sealed class CatalogProviderTests
         Assert.Equal("DemoRepo", root.GetProperty("targets")[0].GetProperty("name").GetString());
         var ping = root.GetProperty("capabilities")[0];
         Assert.Equal("agent.ping", ping.GetProperty("name").GetString());
+        Assert.Equal("agent", ping.GetProperty("domain").GetString());
+        Assert.Equal("read", ping.GetProperty("access").GetString());
+        Assert.Equal(JsonValueKind.Array, ping.GetProperty("exampleQuestions").ValueKind);
         Assert.Equal("string", ping.GetProperty("args").GetProperty("echo").GetProperty("type").GetString());
         Assert.Equal("agent.ping", ping.GetProperty("example").GetProperty("capability").GetString());
+        var agent = root.GetProperty("domains")[0];
+        Assert.Equal("agent", agent.GetProperty("name").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(agent.GetProperty("description").GetString()));
+        Assert.False(string.IsNullOrWhiteSpace(agent.GetProperty("useWhen").GetString()));
+        Assert.Equal(JsonValueKind.Array, agent.GetProperty("exampleQuestions").ValueKind);
+        Assert.Equal("agent.ping", agent.GetProperty("capabilities")[0].GetString());
+        Assert.Equal(0, root.GetProperty("playbooks").GetArrayLength());
+    }
+
+    [Fact]
+    public void Playbooks_serialize_to_the_documented_shape()
+    {
+        var json = JsonSerializer.Serialize(Build(o => o.Playbooks["check"] = Playbook("agent.ping")).Current, JsonDefaults.Options);
+
+        using var document = JsonDocument.Parse(json);
+        var playbook = document.RootElement.GetProperty("playbooks")[0];
+        Assert.Equal("check", playbook.GetProperty("name").GetString());
+        Assert.Equal("Check the test things.", playbook.GetProperty("goal").GetString());
+        Assert.Equal(JsonValueKind.Array, playbook.GetProperty("exampleQuestions").ValueKind);
+        var step = playbook.GetProperty("steps")[0];
+        Assert.Equal("agent.ping", step.GetProperty("capability").GetString());
+        Assert.Equal("Run agent.ping.", step.GetProperty("purpose").GetString());
     }
 
     public sealed class Readme
     {
         private static readonly CatalogProvider Provider = Build(
-            AddDemoRepo,
+            o =>
+            {
+                AddDemoRepo(o);
+                o.Playbooks["backlog-check"] = new PlaybookOptions
+                {
+                    Goal = "Check that the backlog\nis reachable.",
+                    Steps = [new() { Capability = "agent.ping", Purpose = "Reach the agent." }, new() { Capability = "test.fake", Purpose = "Export." }],
+                };
+            },
             capabilities: [Fake(d => d with { RequiresTarget = true, Description = "Exports the backlog.\nAs Markdown." }), new FakeCapability("agent.ping")]);
 
         private readonly string _readme = Provider.RenderReadme();
@@ -457,6 +584,44 @@ public sealed class CatalogProviderTests
         {
             Assert.Contains("- `agent.ping` — Description of agent.ping.", _readme, StringComparison.Ordinal);
             Assert.Contains("- `test.fake` — Exports the backlog. As Markdown. (needs a `target`)", _readme, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void Explains_how_to_choose_what_to_call()
+        {
+            var start = _readme.IndexOf("## Choosing what to call", StringComparison.Ordinal);
+            var end = _readme.IndexOf("## Sending a request", StringComparison.Ordinal);
+            Assert.True(start >= 0 && end > start, "The choosing section comes before the protocol.");
+            var section = _readme[start..end];
+
+            Assert.Contains("1. If the user's goal matches a playbook (its `goal`, `useWhen` or `exampleQuestions`), follow its `steps` in order, one request per step.", section, StringComparison.Ordinal);
+            Assert.Contains("Use the results of earlier steps to fill the arguments of later ones. Skip a step only when it is clearly not needed.", section, StringComparison.Ordinal);
+            Assert.Contains("2. Otherwise pick the domain whose `description`, `useWhen` or `exampleQuestions` match the question, then the capability inside it", section, StringComparison.Ordinal);
+            Assert.Contains("3. If nothing matches, tell the user", section, StringComparison.Ordinal);
+            Assert.Contains("`access`", section, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void Lists_the_playbooks_with_their_goals_and_steps()
+        {
+            Assert.Contains("## Playbooks right now", _readme, StringComparison.Ordinal);
+            Assert.Contains("- `backlog-check` — Check that the backlog is reachable. Steps: `agent.ping` → `test.fake`.", _readme, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void Lists_the_domains_with_their_descriptions_and_capabilities()
+        {
+            var agent = Provider.Current.Domains.Single(d => d.Name == "agent");
+
+            Assert.Contains("## Domains right now", _readme, StringComparison.Ordinal);
+            Assert.Contains($"- `agent` — {agent.Description} Capabilities: `agent.ping`.", _readme, StringComparison.Ordinal);
+            Assert.Contains("- `test` — Capabilities: `test.fake`.", _readme, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void Says_so_when_no_playbook_is_configured()
+        {
+            Assert.Contains("No playbooks are configured", Build().RenderReadme(), StringComparison.Ordinal);
         }
 
         [Fact]

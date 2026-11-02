@@ -69,7 +69,43 @@ internal static class LocalCommands
         {
             output.WriteLine($"  {capability.Descriptor.Name} - {capability.Descriptor.Description}");
         }
+        output.WriteLine($"Domains ({registry.Domains.Count}):");
+        foreach (var domain in registry.Domains)
+        {
+            output.WriteLine($"  {domain.Name} - {domain.Description ?? "(no description)"}");
+            output.WriteLine($"    capabilities: {string.Join(", ", domain.Capabilities)}");
+        }
+        output.WriteLine($"Playbooks ({registry.Playbooks.Count}):");
+        foreach (var playbook in registry.Playbooks)
+        {
+            output.WriteLine($"  {playbook.Name} - {playbook.Goal}");
+            for (var i = 0; i < playbook.Steps.Count; i++)
+            {
+                output.WriteLine($"    {i + 1}. {playbook.Steps[i].Capability} - {playbook.Steps[i].Purpose}");
+            }
+        }
+
+        var hints = registry.Domains
+            .Where(d => d.Description is null)
+            .Select(d => $"Domain '{d.Name}' has no description. Add AgentBridge:Domains:{d.Name} with Description, UseWhen and "
+                + "ExampleQuestions written for a business user, so the cloud can match questions to it.")
+            .ToList();
+        WriteBullets(output, "Notes", registry.Notes);
+        WriteBullets(output, "Hints", hints);
         return Task.FromResult(0);
+    }
+
+    private static void WriteBullets(TextWriter output, string title, IReadOnlyList<string> lines)
+    {
+        if (lines.Count == 0)
+        {
+            return;
+        }
+        output.WriteLine($"{title}:");
+        foreach (var line in lines)
+        {
+            output.WriteLine($"  - {line}");
+        }
     }
 
     /// <summary>"run &lt;capability&gt; [--target name] [--args json]": executes one capability without Box and prints the response.</summary>
